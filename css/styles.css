@@ -345,18 +345,15 @@ button {
   aspect-ratio: 1 / 1;
 }
 
-/* ===== Toolbar: search + tabs (soft floating card, not a hard color block) ===== */
+/* ===== Toolbar: search + tabs (plain in-flow card — no sticky/overlap tricks) ===== */
 .toolbar {
-  position: sticky;
-  top: 82px;
-  z-index: 90;
   background: #fff;
   border: 1px solid var(--border);
   border-radius: 18px;
-  margin: -20px auto 32px;
+  margin: 16px auto 32px;
   max-width: calc(var(--container) - 40px);
   padding: 14px 16px;
-  box-shadow: var(--shadow-card-hover);
+  box-shadow: var(--shadow-card);
 }
 
 .search-row {

@@ -2,12 +2,12 @@
 
 const CATEGORIES = [
   { id: "all", label: "전체" },
+  { id: "christmas", label: "크리스마스 시즌" },
+  { id: "chuseok", label: "추석 시즌" },
   { id: "copyright", label: "저작권 등록" },
   { id: "reaction", label: "상황·리액션" },
   { id: "greeting", label: "인사·축하" },
   { id: "emotion", label: "감정·일상" },
-  { id: "chuseok", label: "추석 시즌" },
-  { id: "christmas", label: "크리스마스 시즌" },
 ];
 
 // 카테고리별 라인 아이콘 (이모지 대신 사용하는 일관된 SVG 아이콘 세트)
@@ -147,6 +147,10 @@ const TOOLS = [
 ];
 
 const CATEGORY_LABEL = Object.fromEntries(CATEGORIES.map((c) => [c.id, c.label]));
+// 크리스마스 → 추석 → 나머지 순으로 카드뉴스를 정렬하기 위한 카테고리 우선순위
+const CATEGORY_ORDER = Object.fromEntries(
+  CATEGORIES.filter((c) => c.id !== "all").map((c, i) => [c.id, i])
+);
 
 const state = { category: "all", query: "" };
 
@@ -184,7 +188,7 @@ function renderGrid() {
     const matchCat = state.category === "all" || b.cat === state.category;
     const matchQuery = !q || b.title.toLowerCase().includes(q) || b.desc.toLowerCase().includes(q);
     return matchCat && matchQuery;
-  });
+  }).sort((a, b) => CATEGORY_ORDER[a.cat] - CATEGORY_ORDER[b.cat]);
 
   countEl.textContent = `${filtered.length}개`;
 
