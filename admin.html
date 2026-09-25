@@ -46,8 +46,8 @@
   <a href="index.html#main">← 사이트로</a>
 </header>
 <nav id="nav">
-  <button data-s="dash" class="on">대시보드</button>
-  <button data-s="users">회원 관리</button>
+  <button data-s="users" class="on">회원 관리</button>
+  <button data-s="dash">대시보드</button>
   <button data-s="codes">가입코드</button>
   <button data-s="bots">챗봇</button>
   <button data-s="tools">제출·편집 도구</button>
@@ -56,16 +56,17 @@
   <button data-s="logs">접속 기록</button>
 </nav>
 <main>
-  <section id="s-dash"><div class="stats" id="stats"></div>
+  <section id="s-dash" hidden><div class="stats" id="stats"></div>
     <div class="box"><b>최근 가입 신청</b><div id="recent"></div></div></section>
 
-  <section id="s-users" hidden>
+  <section id="s-users">
     <div class="toolbar">
-      <select id="u-filter"><option value="">전체</option><option value="pending" selected>승인 대기</option><option value="approved">승인</option><option value="rejected">반려</option><option value="suspended">정지</option></select>
+      <select id="u-filter"><option value="" selected>전체</option><option value="pending">승인 대기</option><option value="approved">승인</option><option value="rejected">반려</option><option value="suspended">정지</option></select>
       <input id="u-q" placeholder="이름·이메일·전화·기수 검색">
       <button class="b ok" id="u-bulk">선택 일괄 승인</button>
       <button class="b" id="u-csv">CSV 내보내기</button>
     </div>
+    <p class="muted" id="u-summary" style="margin:0 0 8px"></p>
     <div class="box" style="margin-top:0"><table><thead><tr><th><input type="checkbox" id="u-all"></th><th>이름</th><th>이메일/전화</th><th>소속·기수</th><th>가입코드</th><th>상태</th><th>가입일 / 최근접속</th><th>관리</th></tr></thead><tbody id="u-body"></tbody></table></div>
   </section>
 
@@ -122,8 +123,8 @@ const toast = t => { const el = $("#toast"); el.textContent = t; el.style.displa
 const ST = { pending: "승인 대기", approved: "승인", rejected: "반려", suspended: "정지" };
 let me, users = [];
 
-if (window.chatconUser) { me = window.chatconUser; show("dash"); }
-else document.addEventListener("chatcon:ready", e => { me = e.detail; show("dash"); }, { once: true });
+if (window.chatconUser) { me = window.chatconUser; show("users"); }
+else document.addEventListener("chatcon:ready", e => { me = e.detail; show("users"); }, { once: true });
 
 document.querySelectorAll("#nav button").forEach(b => b.onclick = () => show(b.dataset.s));
 function show(s) {
@@ -162,6 +163,8 @@ function filtered() {
     (!q || [u.name, u.email, u.phone, u.cohort, u.affiliation].join(" ").toLowerCase().includes(q)));
 }
 function renderUsers() {
+  const c = k => users.filter(u => u.status === k).length;
+  $("#u-summary").textContent = `전체 ${users.length}명 · 승인 대기 ${c("pending")} · 승인 ${c("approved")} · 반려 ${c("rejected")} · 정지 ${c("suspended")}`;
   $("#u-body").innerHTML = filtered().map(u => `<tr>
     <td><input type="checkbox" class="u-chk" value="${u.id}"></td>
     <td><b>${esc(u.name)}</b>${u.role === "admin" ? ' <span class="tag t-admin">관리자</span>' : ""}</td>
@@ -260,7 +263,8 @@ async function crud(col) {
     .sort((a, b) => (a.categoryOrder ?? 0) - (b.categoryOrder ?? 0) || (a.order ?? 0) - (b.order ?? 0));
   const F = FIELDS[col];
   sec.innerHTML = `<div class="box" style="margin-top:0"><b id="${col}-ft">새 항목</b><input type="hidden" id="${col}-id">
-    <div class="grid2" style="margin-top:10px">${F.map(([k, l, t]) => `<label>${l}<input id="${col}-${k}" ${t ? `type="${t}"` : ""}></label>`).join("")}
+    <div class="grid2" style="margin-top:10px">${F.map(([k, l, t]) => `<label>${l}<input id="${col}-${k}" ${t ? `type="${t}"` : ""} ${k === "category" ? `list="${col}-cats"` : ""}></label>`).join("")}
+    <datalist id="${col}-cats">${[...new Set(list.map(x => x.category).filter(Boolean))].map(c => `<option value="${esc(c)}">`).join("")}</datalist>
     <label>게시<select id="${col}-active"><option value="true">게시</option><option value="false">숨김</option></select></label></div>
     <button class="b pri" id="${col}-save" style="margin-top:10px">저장</button> <button class="b" id="${col}-reset">새로 입력</button></div>
     <div class="box"><table><thead><tr>${col === "bots" ? "<th>카테고리</th>" : ""}<th>이름</th><th>링크</th><th>순서</th><th>게시</th><th></th></tr></thead><tbody>
