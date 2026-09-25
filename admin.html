@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="ko" data-require="admin">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>관리자 · ChatCon 챗봇 허브</title>
+<style>html:not(.auth-ok) body{visibility:hidden}</style>
+<script type="module" src="auth-guard.js"></script>
+<style>
+  :root{--bg:#f5f6fb;--card:#fff;--ink:#111827;--muted:#6b7280;--line:#e5e7eb;--pri:#6d28d9;--ok:#059669;--warn:#d97706;--bad:#dc2626}
+  *{box-sizing:border-box}
+  body{margin:0;font:14px/1.5 "Pretendard",system-ui,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;background:var(--bg);color:var(--ink)}
+  header{display:flex;align-items:center;gap:12px;padding:14px 20px;background:#111827;color:#fff;flex-wrap:wrap}
+  header h1{font-size:16px;margin:0;flex:1}
+  header a{color:#c4b5fd;text-decoration:none}
+  nav{display:flex;gap:6px;padding:12px 20px;overflow-x:auto;background:#fff;border-bottom:1px solid var(--line)}
+  nav button{border:0;background:#f3f4f6;padding:8px 14px;border-radius:999px;font:inherit;cursor:pointer;white-space:nowrap}
+  nav button.on{background:var(--pri);color:#fff}
+  main{padding:20px;max-width:1200px;margin:0 auto}
+  .stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px}
+  .stat{background:#fff;border-radius:14px;padding:16px;border:1px solid var(--line)}
+  .stat b{display:block;font-size:26px}
+  .stat span{color:var(--muted);font-size:12px}
+  .box{background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px;margin-top:16px;overflow-x:auto}
+  .toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+  input,select,textarea{padding:8px 10px;border:1px solid var(--line);border-radius:8px;font:inherit;background:#fff;color:inherit}
+  textarea{width:100%;min-height:70px}
+  table{width:100%;border-collapse:collapse;min-width:720px}
+  th,td{text-align:left;padding:9px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{font-size:12px;color:var(--muted);font-weight:600}
+  .b{border:0;border-radius:8px;padding:6px 10px;font:inherit;font-size:12px;cursor:pointer;background:#f3f4f6;margin:1px}
+  .b.pri{background:var(--pri);color:#fff}.b.ok{background:#d1fae5;color:#065f46}.b.bad{background:#fee2e2;color:#991b1b}.b.warn{background:#fef3c7;color:#92400e}
+  .tag{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700}
+  .t-pending{background:#fef3c7;color:#92400e}.t-approved{background:#d1fae5;color:#065f46}.t-rejected{background:#f3f4f6;color:#6b7280}.t-suspended{background:#fee2e2;color:#991b1b}.t-admin{background:#ede9fe;color:#5b21b6}
+  .grid2{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
+  .grid2 label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}
+  .muted{color:var(--muted)}
+  #toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#111827;color:#fff;padding:10px 16px;border-radius:10px;display:none;z-index:99}
+  section[hidden]{display:none}
+</style>
+</head>
+<body>
+<header>
+  <h1>🛠️ ChatCon 관리자</h1>
+  <a href="index.html#main">← 사이트로</a>
+</header>
+<nav id="nav">
+  <button data-s="dash" class="on">대시보드</button>
+  <button data-s="users">회원 관리</button>
+  <button data-s="codes">가입코드</button>
+  <button data-s="bots">챗봇</button>
+  <button data-s="tools">제출·편집 도구</button>
+  <button data-s="notices">공지</button>
+  <button data-s="settings">사이트 설정</button>
+  <button data-s="logs">접속 기록</button>
+</nav>
+<main>
+  <section id="s-dash"><div class="stats" id="stats"></div>
+    <div class="box"><b>최근 가입 신청</b><div id="recent"></div></div></section>
+
+  <section id="s-users" hidden>
+    <div class="toolbar">
+      <select id="u-filter"><option value="">전체</option><option value="pending" selected>승인 대기</option><option value="approved">승인</option><option value="rejected">반려</option><option value="suspended">정지</option></select>
+      <input id="u-q" placeholder="이름·이메일·전화·기수 검색">
+      <button class="b ok" id="u-bulk">선택 일괄 승인</button>
+      <button class="b" id="u-csv">CSV 내보내기</button>
+    </div>
+    <div class="box" style="margin-top:0"><table><thead><tr><th><input type="checkbox" id="u-all"></th><th>이름</th><th>이메일/전화</th><th>소속·기수</th><th>가입코드</th><th>상태</th><th>가입일 / 최근접속</th><th>관리</th></tr></thead><tbody id="u-body"></tbody></table></div>
+  </section>
+
+  <section id="s-codes" hidden>
+    <div class="box" style="margin-top:0"><b>새 가입코드</b>
+      <div class="grid2" style="margin-top:10px">
+        <label>코드 (비우면 자동)<input id="c-code" placeholder="CHATCON-3GI"></label>
+        <label>기수/메모<input id="c-cohort" placeholder="3기"></label>
+        <label>최대 사용 횟수<input id="c-max" type="number" value="50" min="1"></label>
+        <label>유효 기간(일)<input id="c-days" type="number" value="30" min="1"></label>
+      </div><button class="b pri" id="c-create" style="margin-top:10px">코드 만들기</button></div>
+    <div class="box"><table><thead><tr><th>코드</th><th>기수/메모</th><th>사용</th><th>만료</th><th>상태</th><th></th></tr></thead><tbody id="c-body"></tbody></table></div>
+  </section>
+
+  <section id="s-bots" hidden></section>
+  <section id="s-tools" hidden></section>
+
+  <section id="s-notices" hidden>
+    <div class="box" style="margin-top:0"><b>새 공지</b>
+      <div class="grid2" style="margin-top:10px"><label>제목<input id="n-title"></label>
+        <label>상단 고정<select id="n-pin"><option value="false">아니오</option><option value="true">예</option></select></label></div>
+      <label class="muted" style="display:block;margin-top:8px">내용<textarea id="n-body"></textarea></label>
+      <button class="b pri" id="n-create" style="margin-top:8px">등록</button></div>
+    <div class="box"><table><thead><tr><th>제목</th><th>내용</th><th>고정</th><th>게시</th><th>작성일</th><th></th></tr></thead><tbody id="n-body-list"></tbody></table></div>
+  </section>
+
+  <section id="s-settings" hidden>
+    <div class="box" style="margin-top:0">
+      <div class="grid2">
+        <label>신규 가입 허용<select id="st-open"><option value="true">허용</option><option value="false">마감</option></select></label>
+        <label>가입 마감 안내 문구<input id="st-closedmsg" placeholder="현재 신규 가입이 마감되었습니다."></label>
+        <label>문의 연락처<input id="st-contact" placeholder="카카오 오픈채팅 / 이메일"></label>
+      </div>
+      <button class="b pri" id="st-save" style="margin-top:12px">저장</button>
+    </div>
+  </section>
+
+  <section id="s-logs" hidden>
+    <div class="toolbar"><input id="l-q" placeholder="이메일 필터"><button class="b" id="l-load">불러오기</button></div>
+    <div class="box" style="margin-top:0"><table><thead><tr><th>시각</th><th>이메일</th><th>동작</th><th>페이지</th></tr></thead><tbody id="l-body"></tbody></table></div>
+  </section>
+</main>
+<div id="toast"></div>
+
+<script type="module">
+import { collection, getDocs, doc, getDoc, setDoc, updateDoc, deleteDoc, addDoc, query, where, orderBy, limit,
+  serverTimestamp, Timestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { db } from "./firebase-init.js";
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const fmt = t => t?.toDate ? t.toDate().toLocaleString("ko-KR", { dateStyle: "short", timeStyle: "short" }) : "-";
+const toast = t => { const el = $("#toast"); el.textContent = t; el.style.display = "block"; clearTimeout(el._t); el._t = setTimeout(() => el.style.display = "none", 2200); };
+const ST = { pending: "승인 대기", approved: "승인", rejected: "반려", suspended: "정지" };
+let me, users = [];
+
+if (window.chatconUser) { me = window.chatconUser; show("dash"); }
+else document.addEventListener("chatcon:ready", e => { me = e.detail; show("dash"); }, { once: true });
+
+document.querySelectorAll("#nav button").forEach(b => b.onclick = () => show(b.dataset.s));
+function show(s) {
+  document.querySelectorAll("#nav button").forEach(b => b.classList.toggle("on", b.dataset.s === s));
+  document.querySelectorAll("main>section").forEach(x => x.hidden = x.id !== "s-" + s);
+  ({ dash: loadDash, users: loadUsers, codes: loadCodes, bots: () => crud("bots"), tools: () => crud("tools"),
+     notices: loadNotices, settings: loadSettings, logs: loadLogs })[s]();
+}
+
+// ---------- 대시보드 ----------
+async function loadDash() {
+  users = (await getDocs(collection(db, "users"))).docs.map(d => ({ id: d.id, ...d.data() }));
+  const c = k => users.filter(u => u.status === k).length;
+  const bots = (await getDocs(collection(db, "bots"))).size;
+  const week = Date.now() - 7 * 864e5;
+  const active7 = users.filter(u => u.lastLoginAt?.toMillis?.() > week).length;
+  $("#stats").innerHTML = [["전체 회원", users.length], ["승인 대기", c("pending")], ["승인 회원", c("approved")],
+    ["정지", c("suspended")], ["7일 활성", active7], ["등록 챗봇", bots]]
+    .map(([k, v]) => `<div class="stat"><b>${v}</b><span>${k}</span></div>`).join("");
+  const rec = users.filter(u => u.status === "pending").sort((a, b) => (b.createdAt?.seconds ?? 0) - (a.createdAt?.seconds ?? 0)).slice(0, 8);
+  $("#recent").innerHTML = rec.length ? rec.map(u => `<div style="padding:8px 0;border-bottom:1px solid var(--line)">
+    <b>${esc(u.name)}</b> <span class="muted">${esc(u.email)} · ${esc(u.cohort || "")} · ${fmt(u.createdAt)}</span>
+    <button class="b ok" data-approve="${u.id}">승인</button></div>`).join("") : `<p class="muted">대기 중인 신청이 없습니다.</p>`;
+  $("#recent").querySelectorAll("[data-approve]").forEach(b => b.onclick = async () => { await setStatus(b.dataset.approve, "approved"); loadDash(); });
+}
+
+// ---------- 회원 ----------
+async function loadUsers() {
+  users = (await getDocs(collection(db, "users"))).docs.map(d => ({ id: d.id, ...d.data() }))
+    .sort((a, b) => (b.createdAt?.seconds ?? 0) - (a.createdAt?.seconds ?? 0));
+  renderUsers();
+}
+function filtered() {
+  const f = $("#u-filter").value, q = $("#u-q").value.trim().toLowerCase();
+  return users.filter(u => (!f || u.status === f) &&
+    (!q || [u.name, u.email, u.phone, u.cohort, u.affiliation].join(" ").toLowerCase().includes(q)));
+}
+function renderUsers() {
+  $("#u-body").innerHTML = filtered().map(u => `<tr>
+    <td><input type="checkbox" class="u-chk" value="${u.id}"></td>
+    <td><b>${esc(u.name)}</b>${u.role === "admin" ? ' <span class="tag t-admin">관리자</span>' : ""}</td>
+    <td>${esc(u.email)}<br><span class="muted">${esc(u.phone || "")}</span></td>
+    <td>${esc(u.affiliation || "-")}<br><span class="muted">${esc(u.cohort || "")}</span></td>
+    <td>${esc(u.inviteCode || "-")}</td>
+    <td><span class="tag t-${u.status}">${ST[u.status] || u.status}</span>${u.statusReason ? `<br><span class="muted">${esc(u.statusReason)}</span>` : ""}${u.adminMemo ? `<br><span class="muted">📝 ${esc(u.adminMemo)}</span>` : ""}</td>
+    <td>${fmt(u.createdAt)}<br><span class="muted">${fmt(u.lastLoginAt)} (${u.loginCount || 0}회)</span></td>
+    <td>
+      ${u.id !== me.uid ? `${u.status !== "approved" ? `<button class="b ok" data-a="approved" data-id="${u.id}">${u.status === "suspended" ? "복구" : "승인"}</button>` : ""}
+      ${u.status === "pending" ? `<button class="b" data-a="rejected" data-id="${u.id}">반려</button>` : ""}
+      ${u.status === "approved" ? `<button class="b bad" data-a="suspended" data-id="${u.id}">정지</button>` : ""}
+      <button class="b warn" data-role="${u.role === "admin" ? "member" : "admin"}" data-id="${u.id}">${u.role === "admin" ? "관리자 해제" : "관리자 지정"}</button>
+      <button class="b bad" data-del="${u.id}">삭제</button>` : `<span class="muted">본인</span>`}
+      <button class="b" data-memo="${u.id}">메모</button>
+    </td></tr>`).join("") || `<tr><td colspan="8" class="muted">해당 회원이 없습니다.</td></tr>`;
+  $("#u-body").querySelectorAll("[data-a]").forEach(b => b.onclick = async () => {
+    let reason = "";
+    if (b.dataset.a !== "approved") { reason = prompt("사유를 입력하세요 (회원에게 표시됩니다)", "") ?? null; if (reason === null) return; }
+    await setStatus(b.dataset.id, b.dataset.a, reason); loadUsers();
+  });
+  $("#u-body").querySelectorAll("[data-role]").forEach(b => b.onclick = async () => {
+    const toAdmin = b.dataset.role === "admin";
+    if (!confirm(toAdmin ? "관리자로 지정할까요? (승인 상태로 바뀌고 모든 관리 권한을 갖습니다)" : "관리자 권한을 해제할까요?")) return;
+    const patch = { role: b.dataset.role, updatedAt: serverTimestamp() };
+    if (toAdmin) Object.assign(patch, { status: "approved", statusReason: "", approvedAt: serverTimestamp(), approvedBy: me.email });
+    await updateDoc(doc(db, "users", b.dataset.id), patch);
+    toast("권한 변경 완료"); loadUsers();
+  });
+  $("#u-body").querySelectorAll("[data-memo]").forEach(b => b.onclick = async () => {
+    const u = users.find(x => x.id === b.dataset.memo);
+    const memo = prompt("관리자 메모 (회원에게 보이지 않음)", u?.adminMemo || "");
+    if (memo === null) return;
+    await updateDoc(doc(db, "users", b.dataset.memo), { adminMemo: memo.trim(), updatedAt: serverTimestamp() });
+    toast("메모 저장"); loadUsers();
+  });
+  $("#u-body").querySelectorAll("[data-del]").forEach(b => b.onclick = async () => {
+    if (!confirm("회원 정보를 삭제할까요? (로그인 계정 자체 삭제는 MCP delete_member 사용)")) return;
+    await deleteDoc(doc(db, "users", b.dataset.del)); toast("삭제 완료"); loadUsers();
+  });
+}
+async function setStatus(id, status, reason = "") {
+  const patch = { status, statusReason: reason || "", updatedAt: serverTimestamp() };
+  if (status === "approved") Object.assign(patch, { approvedAt: serverTimestamp(), approvedBy: me.email });
+  await updateDoc(doc(db, "users", id), patch); toast(`${ST[status]} 처리 완료`);
+}
+$("#u-filter").onchange = renderUsers; $("#u-q").oninput = renderUsers;
+$("#u-all").onchange = e => document.querySelectorAll(".u-chk").forEach(c => c.checked = e.target.checked);
+$("#u-bulk").onclick = async () => {
+  const ids = [...document.querySelectorAll(".u-chk:checked")].map(c => c.value);
+  if (!ids.length) return toast("선택된 회원이 없습니다");
+  if (!confirm(`${ids.length}명을 승인할까요?`)) return;
+  for (const id of ids) if (id !== me.uid) await setStatus(id, "approved");
+  loadUsers();
+};
+$("#u-csv").onclick = () => {
+  const rows = [["이름","이메일","전화","소속","기수","가입코드","상태","마케팅동의","가입일","최근접속","접속횟수"],
+    ...filtered().map(u => [u.name,u.email,u.phone,u.affiliation,u.cohort,u.inviteCode,ST[u.status],u.agreeMarketing?"Y":"N",fmt(u.createdAt),fmt(u.lastLoginAt),u.loginCount||0])];
+  const csv = "﻿" + rows.map(r => r.map(v => `"${String(v ?? "").replace(/"/g,'""')}"`).join(",")).join("\n");
+  const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+  a.download = `chatcon-members-${new Date().toISOString().slice(0,10)}.csv`; a.click();
+};
+
+// ---------- 가입코드 ----------
+async function loadCodes() {
+  const list = (await getDocs(collection(db, "inviteCodes"))).docs.map(d => ({ id: d.id, ...d.data() }));
+  $("#c-body").innerHTML = list.map(c => {
+    const expired = c.expiresAt?.toMillis?.() < Date.now(), full = c.usedCount >= c.maxUses;
+    const st = !c.active ? "비활성" : expired ? "만료" : full ? "소진" : "사용 가능";
+    return `<tr><td><b>${esc(c.id)}</b></td><td>${esc(c.cohort || "")}</td><td>${c.usedCount}/${c.maxUses}</td><td>${fmt(c.expiresAt)}</td>
+      <td>${st}</td><td><button class="b" data-t="${esc(c.id)}" data-v="${!c.active}">${c.active ? "비활성화" : "활성화"}</button>
+      <button class="b bad" data-dc="${esc(c.id)}">삭제</button></td></tr>`;
+  }).join("") || `<tr><td colspan="6" class="muted">코드가 없습니다.</td></tr>`;
+  $("#c-body").querySelectorAll("[data-t]").forEach(b => b.onclick = async () => { await updateDoc(doc(db, "inviteCodes", b.dataset.t), { active: b.dataset.v === "true" }); loadCodes(); });
+  $("#c-body").querySelectorAll("[data-dc]").forEach(b => b.onclick = async () => { if (confirm("삭제할까요?")) { await deleteDoc(doc(db, "inviteCodes", b.dataset.dc)); loadCodes(); } });
+}
+$("#c-create").onclick = async () => {
+  const code = ($("#c-code").value.trim() || "CC-" + Math.random().toString(36).slice(2, 8)).toUpperCase().replace(/[^A-Z0-9-_]/g, "");
+  if (!code) return toast("코드는 영문 대문자·숫자·-·_ 만 사용할 수 있습니다");
+  if ((await getDoc(doc(db, "inviteCodes", code))).exists()) return toast(`이미 있는 코드입니다: ${code}`);
+  const days = +$("#c-days").value || 30;
+  await setDoc(doc(db, "inviteCodes", code), { cohort: $("#c-cohort").value.trim(), maxUses: +$("#c-max").value || 50, usedCount: 0,
+    active: true, expiresAt: Timestamp.fromMillis(Date.now() + days * 864e5), createdAt: serverTimestamp(), createdBy: me.email });
+  $("#c-code").value = ""; toast(`코드 ${code} 생성`); loadCodes();
+};
+
+// ---------- 챗봇 / 도구 공통 CRUD ----------
+const FIELDS = {
+  bots: [["title","챗봇 이름"],["category","카테고리"],["categoryOrder","카테고리 순서","number"],["order","순서","number"],
+         ["url","링크(URL)"],["icon","아이콘(이모지)"],["badge","배지(NEW 등)"],["tags","태그(쉼표 구분)"],["description","설명"]],
+  tools: [["title","도구 이름"],["order","순서","number"],["url","링크(URL)"],["icon","아이콘"],["description","설명"]]
+};
+async function crud(col) {
+  const sec = $("#s-" + col);
+  const list = (await getDocs(collection(db, col))).docs.map(d => ({ id: d.id, ...d.data() }))
+    .sort((a, b) => (a.categoryOrder ?? 0) - (b.categoryOrder ?? 0) || (a.order ?? 0) - (b.order ?? 0));
+  const F = FIELDS[col];
+  sec.innerHTML = `<div class="box" style="margin-top:0"><b id="${col}-ft">새 항목</b><input type="hidden" id="${col}-id">
+    <div class="grid2" style="margin-top:10px">${F.map(([k, l, t]) => `<label>${l}<input id="${col}-${k}" ${t ? `type="${t}"` : ""}></label>`).join("")}
+    <label>게시<select id="${col}-active"><option value="true">게시</option><option value="false">숨김</option></select></label></div>
+    <button class="b pri" id="${col}-save" style="margin-top:10px">저장</button> <button class="b" id="${col}-reset">새로 입력</button></div>
+    <div class="box"><table><thead><tr>${col === "bots" ? "<th>카테고리</th>" : ""}<th>이름</th><th>링크</th><th>순서</th><th>게시</th><th></th></tr></thead><tbody>
+    ${list.map(x => `<tr>${col === "bots" ? `<td>${esc(x.category)}</td>` : ""}<td>${esc(x.icon || "")} <b>${esc(x.title)}</b><br><span class="muted">${esc(x.description || "")}</span></td>
+      <td style="max-width:260px;word-break:break-all"><a href="${esc(x.url)}" target="_blank">${esc(x.url)}</a></td><td>${x.order ?? 0}</td><td>${x.active ? "✅" : "숨김"}</td>
+      <td><button class="b" data-e="${x.id}">수정</button><button class="b bad" data-d="${x.id}">삭제</button></td></tr>`).join("") || `<tr><td colspan="6" class="muted">항목이 없습니다.</td></tr>`}
+    </tbody></table></div>`;
+  const reset = () => { $(`#${col}-id`).value = ""; F.forEach(([k]) => $(`#${col}-${k}`).value = ""); $(`#${col}-ft`).textContent = "새 항목"; };
+  $(`#${col}-reset`).onclick = reset;
+  $(`#${col}-save`).onclick = async () => {
+    const data = { active: $(`#${col}-active`).value === "true", updatedAt: serverTimestamp() };
+    F.forEach(([k, , t]) => { const v = $(`#${col}-${k}`).value.trim(); data[k] = t === "number" ? +v || 0 : k === "tags" ? v.split(",").map(s => s.trim()).filter(Boolean) : v; });
+    if (!data.title || !/^https?:\/\//.test(data.url)) return toast("이름과 올바른 URL(https://…)을 입력하세요");
+    const id = $(`#${col}-id`).value;
+    if (id) await updateDoc(doc(db, col, id), data); else await addDoc(collection(db, col), { ...data, createdAt: serverTimestamp() });
+    toast("저장 완료"); crud(col);
+  };
+  sec.querySelectorAll("[data-e]").forEach(b => b.onclick = () => {
+    const x = list.find(i => i.id === b.dataset.e); $(`#${col}-id`).value = x.id; $(`#${col}-ft`).textContent = "수정: " + x.title;
+    F.forEach(([k]) => $(`#${col}-${k}`).value = Array.isArray(x[k]) ? x[k].join(", ") : (x[k] ?? ""));
+    $(`#${col}-active`).value = String(!!x.active); window.scrollTo({ top: 0, behavior: "smooth" });
+  });
+  sec.querySelectorAll("[data-d]").forEach(b => b.onclick = async () => { if (confirm("삭제할까요?")) { await deleteDoc(doc(db, col, b.dataset.d)); crud(col); } });
+}
+
+// ---------- 공지 ----------
+async function loadNotices() {
+  const list = (await getDocs(collection(db, "notices"))).docs.map(d => ({ id: d.id, ...d.data() }))
+    .sort((a, b) => (b.createdAt?.seconds ?? 0) - (a.createdAt?.seconds ?? 0));
+  $("#n-body-list").innerHTML = list.map(n => `<tr><td><b>${esc(n.title)}</b></td><td>${esc(n.body || "")}</td><td>${n.pinned ? "📌" : ""}</td>
+    <td><button class="b" data-nt="${n.id}" data-v="${!n.active}">${n.active ? "게시중" : "숨김"}</button></td><td>${fmt(n.createdAt)}</td>
+    <td><button class="b bad" data-nd="${n.id}">삭제</button></td></tr>`).join("") || `<tr><td colspan="6" class="muted">공지가 없습니다.</td></tr>`;
+  $("#n-body-list").querySelectorAll("[data-nt]").forEach(b => b.onclick = async () => { await updateDoc(doc(db, "notices", b.dataset.nt), { active: b.dataset.v === "true" }); loadNotices(); });
+  $("#n-body-list").querySelectorAll("[data-nd]").forEach(b => b.onclick = async () => { if (confirm("삭제할까요?")) { await deleteDoc(doc(db, "notices", b.dataset.nd)); loadNotices(); } });
+}
+$("#n-create").onclick = async () => {
+  if (!$("#n-title").value.trim()) return toast("제목을 입력하세요");
+  await addDoc(collection(db, "notices"), { title: $("#n-title").value.trim(), body: $("#n-body").value.trim(),
+    pinned: $("#n-pin").value === "true", active: true, createdAt: serverTimestamp(), author: me.email });
+  $("#n-title").value = $("#n-body").value = ""; toast("공지 등록"); loadNotices();
+};
+
+// ---------- 설정 ----------
+async function loadSettings() {
+  const s = await getDoc(doc(db, "settings", "site")); const d = s.exists() ? s.data() : {};
+  $("#st-open").value = String(d.signupOpen !== false); $("#st-closedmsg").value = d.signupClosedMessage || ""; $("#st-contact").value = d.contact || "";
+}
+$("#st-save").onclick = async () => {
+  await setDoc(doc(db, "settings", "site"), { signupOpen: $("#st-open").value === "true", signupClosedMessage: $("#st-closedmsg").value.trim(),
+    contact: $("#st-contact").value.trim(), updatedAt: serverTimestamp() }, { merge: true });
+  toast("설정 저장");
+};
+
+// ---------- 로그 ----------
+async function loadLogs() {
+  const q = query(collection(db, "accessLogs"), orderBy("at", "desc"), limit(300));
+  const f = $("#l-q").value.trim().toLowerCase();
+  const list = (await getDocs(q)).docs.map(d => d.data()).filter(l => !f || (l.email || "").toLowerCase().includes(f));
+  $("#l-body").innerHTML = list.map(l => `<tr><td>${fmt(l.at)}</td><td>${esc(l.email)}</td><td>${esc(l.action)}</td><td>${esc(l.page)}</td></tr>`).join("")
+    || `<tr><td colspan="4" class="muted">기록이 없습니다.</td></tr>`;
+}
+$("#l-load").onclick = loadLogs;
+</script>
+</body>
+</html>

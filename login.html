@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>로그인 · ChatCon 챗봇 허브</title>
+<style>
+  :root{--bg:#f5f6fb;--card:#fff;--ink:#111827;--muted:#6b7280;--line:#e5e7eb;--pri:#6d28d9;--pri2:#8b5cf6;--ok:#059669;--warn:#d97706;--bad:#dc2626}
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px 16px;
+    font:15px/1.55 "Pretendard",system-ui,-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+    background:radial-gradient(1200px 600px at 10% -10%,#ede9fe,transparent),radial-gradient(900px 500px at 110% 110%,#dbeafe,transparent),var(--bg);color:var(--ink)}
+  .wrap{width:100%;max-width:440px}
+  .brand{text-align:center;margin-bottom:18px}
+  .brand .logo{font-size:40px}
+  .brand h1{font-size:20px;margin:6px 0 2px}
+  .brand p{margin:0;color:var(--muted);font-size:13px}
+  .card{background:var(--card);border-radius:20px;box-shadow:0 20px 50px rgba(17,24,39,.08);padding:24px}
+  .tabs{display:flex;background:#f3f4f6;border-radius:12px;padding:4px;margin-bottom:20px}
+  .tabs button{flex:1;border:0;background:transparent;padding:10px;border-radius:9px;font:inherit;font-weight:600;color:var(--muted);cursor:pointer}
+  .tabs button.on{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+  label{display:block;font-size:13px;font-weight:600;margin:12px 0 6px}
+  label small{font-weight:400;color:var(--muted)}
+  input[type=text],input[type=email],input[type=password],input[type=tel]{width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:10px;font:inherit;background:#fff}
+  input:focus{outline:2px solid #c4b5fd;border-color:var(--pri2)}
+  .row{display:flex;gap:10px}.row>div{flex:1}
+  .btn{width:100%;margin-top:18px;padding:13px;border:0;border-radius:12px;background:linear-gradient(135deg,var(--pri),var(--pri2));color:#fff;font:inherit;font-weight:700;cursor:pointer}
+  .btn:disabled{opacity:.6;cursor:wait}
+  .btn.ghost{background:#f3f4f6;color:var(--ink)}
+  .link{background:none;border:0;color:var(--pri);font:inherit;font-size:13px;cursor:pointer;padding:0}
+  .agree{border:1px solid var(--line);border-radius:12px;padding:12px;margin-top:14px}
+  .agree .all{font-weight:700;padding-bottom:8px;border-bottom:1px solid var(--line);margin-bottom:8px}
+  .chk{display:flex;align-items:flex-start;gap:8px;font-size:13px;margin:6px 0}
+  .chk input{margin-top:3px}
+  .chk details{flex:1}
+  .chk summary{cursor:pointer;list-style:none}
+  .chk summary::-webkit-details-marker{display:none}
+  .chk .terms{font-size:12px;color:var(--muted);background:#f9fafb;border-radius:8px;padding:8px 10px;margin-top:6px;max-height:140px;overflow:auto;white-space:pre-line}
+  .req{color:var(--bad);font-weight:700}
+  .msg{margin-top:14px;padding:10px 12px;border-radius:10px;font-size:13px;display:none}
+  .msg.show{display:block}.msg.err{background:#fef2f2;color:var(--bad)}.msg.ok{background:#ecfdf5;color:var(--ok)}.msg.info{background:#eff6ff;color:#1d4ed8}
+  .hint{font-size:12px;color:var(--muted);margin-top:4px}
+  .status{text-align:center;padding:10px 0}
+  .status .ico{font-size:52px}
+  .status h2{margin:8px 0 6px;font-size:19px}
+  .status p{color:var(--muted);margin:0 0 6px}
+  .pill{display:inline-block;padding:4px 10px;border-radius:999px;font-size:12px;font-weight:700;background:#fef3c7;color:var(--warn)}
+  .foot{text-align:center;color:var(--muted);font-size:12px;margin-top:16px}
+  [hidden]{display:none!important}
+  @media (prefers-color-scheme: dark){
+    :root{--bg:#0b0f19;--card:#111827;--ink:#f3f4f6;--muted:#9ca3af;--line:#374151}
+    body{background:var(--bg)}
+    .tabs{background:#1f2937}.tabs button.on{background:#374151;color:#fff}
+    input[type=text],input[type=email],input[type=password],input[type=tel]{background:#0f172a;color:var(--ink)}
+    .chk .terms{background:#0f172a}.btn.ghost{background:#1f2937;color:#fff}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand">
+    <div class="logo">💬</div>
+    <h1>ChatCon 이모티콘 프롬프트 챗봇 허브</h1>
+    <p>챗콘 정규반 전용 · 회원가입 후 이용할 수 있습니다</p>
+  </div>
+
+  <div class="card">
+    <!-- 탭 -->
+    <div class="tabs" id="tabs">
+      <button type="button" data-tab="login" class="on">로그인</button>
+      <button type="button" data-tab="signup">회원가입</button>
+    </div>
+
+    <!-- 로그인 -->
+    <form id="f-login" autocomplete="on">
+      <label>이메일</label>
+      <input type="email" name="email" required placeholder="you@example.com" autocomplete="username">
+      <label>비밀번호</label>
+      <input type="password" name="password" required minlength="8" autocomplete="current-password">
+      <button class="btn" type="submit">로그인</button>
+      <div style="text-align:right;margin-top:10px"><button type="button" class="link" data-tab="reset">비밀번호를 잊으셨나요?</button></div>
+    </form>
+
+    <!-- 회원가입 -->
+    <form id="f-signup" hidden autocomplete="on">
+      <div id="signup-closed" class="msg info"></div>
+      <label>이름 <span class="req">*</span></label>
+      <input type="text" name="name" required maxlength="30" placeholder="홍길동" autocomplete="name">
+      <div id="su-cred">
+      <label>이메일 <span class="req">*</span> <small>(로그인 아이디)</small></label>
+      <input type="email" name="email" required autocomplete="email">
+      <div class="row">
+        <div><label>비밀번호 <span class="req">*</span></label>
+          <input type="password" name="password" required minlength="8" autocomplete="new-password"></div>
+        <div><label>비밀번호 확인 <span class="req">*</span></label>
+          <input type="password" name="password2" required minlength="8" autocomplete="new-password"></div>
+      </div>
+      <div class="hint">영문·숫자 포함 8자 이상</div>
+      </div>
+      <div id="su-resume" class="msg info"></div>
+      <label>휴대폰 번호 <span class="req">*</span></label>
+      <input type="tel" name="phone" required placeholder="010-0000-0000" pattern="01[0-9]-?[0-9]{3,4}-?[0-9]{4}" autocomplete="tel">
+      <div class="row">
+        <div><label>소속 <small>(선택)</small></label><input type="text" name="affiliation" maxlength="40" placeholder="예) 챗콘 정규반"></div>
+        <div><label>기수 <small>(선택)</small></label><input type="text" name="cohort" maxlength="20" placeholder="예) 3기"></div>
+      </div>
+      <label>가입코드 <small>(강사에게 받은 코드 · 입력 시 즉시 승인)</small></label>
+      <input type="text" name="inviteCode" maxlength="40" placeholder="없으면 비워두세요 (관리자 승인 후 이용)" style="text-transform:uppercase">
+
+      <div class="agree">
+        <div class="chk all"><input type="checkbox" id="agree-all"><label for="agree-all" style="margin:0">전체 동의</label></div>
+        <div class="chk"><input type="checkbox" name="agreeTerms" id="a1" required>
+          <details><summary><span class="req">[필수]</span> 이용약관 동의 ▾</summary>
+          <div class="terms">1. 본 사이트는 챗콘 정규반 수강생·강사 전용 학습 자료 공간입니다.
+2. 회원은 본인 정보로 가입해야 하며, 계정을 타인과 공유할 수 없습니다.
+3. 운영자는 약관 위반 시 사전 통지 없이 이용을 제한하거나 계정을 삭제할 수 있습니다.
+4. 서비스 내용은 운영 사정에 따라 변경·중단될 수 있습니다.</div></details></div>
+        <div class="chk"><input type="checkbox" name="agreePrivacy" id="a2" required>
+          <details><summary><span class="req">[필수]</span> 개인정보 수집·이용 동의 ▾</summary>
+          <div class="terms">· 수집 항목: 이름, 이메일, 휴대폰 번호, 소속·기수(선택), 접속 기록
+· 수집 목적: 회원 식별, 가입 승인, 수업 안내, 부정 이용 방지
+· 보유 기간: 회원 탈퇴 시까지 (관계 법령에 따라 보존이 필요한 경우 해당 기간)
+· 동의를 거부할 수 있으며, 거부 시 회원가입이 제한됩니다.</div></details></div>
+        <div class="chk"><input type="checkbox" name="agreePledge" id="a3" required>
+          <details><summary><span class="req">[필수]</span> 자료 외부 공유 금지 서약 ▾</summary>
+          <div class="terms">본 사이트의 챗봇 링크·프롬프트·자료는 내부 전용입니다. 캡처·링크 전달·재배포 등 외부 공유를 하지 않을 것을 서약합니다. 위반 시 이용이 영구 제한될 수 있습니다.</div></details></div>
+        <div class="chk"><input type="checkbox" name="agreeMarketing" id="a4">
+          <details><summary>[선택] 강의·이벤트 소식 수신 동의 ▾</summary>
+          <div class="terms">신규 강의, 무료 특강, 이벤트 소식을 이메일·문자로 받아보실 수 있습니다. 언제든 철회할 수 있습니다.</div></details></div>
+      </div>
+      <button class="btn" type="submit">회원가입</button>
+    </form>
+
+    <!-- 비밀번호 재설정 -->
+    <form id="f-reset" hidden>
+      <p style="margin:0 0 4px;font-weight:700">비밀번호 재설정</p>
+      <p class="hint" style="margin:0">가입한 이메일로 재설정 링크를 보내드립니다.</p>
+      <label>이메일</label>
+      <input type="email" name="email" required>
+      <button class="btn" type="submit">재설정 메일 보내기</button>
+      <button class="btn ghost" type="button" data-tab="login">로그인으로 돌아가기</button>
+    </form>
+
+    <!-- 상태 안내 (승인 대기 / 반려 / 정지) -->
+    <div id="status-panel" class="status" hidden>
+      <div class="ico" id="st-ico">⏳</div>
+      <h2 id="st-title">승인 대기 중입니다</h2>
+      <p id="st-desc">관리자 승인 후 이용하실 수 있어요.</p>
+      <p><span class="pill" id="st-pill">승인 대기</span></p>
+      <p class="hint" id="st-email"></p>
+      <button class="btn" type="button" id="st-refresh">승인 상태 새로고침</button>
+      <button class="btn ghost" type="button" id="st-logout">다른 계정으로 로그인</button>
+    </div>
+
+    <div id="msg" class="msg"></div>
+  </div>
+  <div class="foot">ⓒ ChatCon · 내부 전용 자료 · 외부 공유 금지</div>
+</div>
+
+<script type="module">
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail,
+  sendEmailVerification, updateProfile, onAuthStateChanged, signOut, deleteUser }
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { doc, getDoc, writeBatch, serverTimestamp, increment, setDoc }
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { auth, db, SITE, koError } from "./firebase-init.js";
+
+const $ = s => document.querySelector(s);
+const params = new URLSearchParams(location.search);
+const next = params.get("next");
+const forms = { login: $("#f-login"), signup: $("#f-signup"), reset: $("#f-reset") };
+let busy = false;
+
+function msg(text, type = "err") {
+  const m = $("#msg"); m.className = `msg show ${type}`; m.textContent = text;
+  if (!text) m.className = "msg";
+}
+function tab(name) {
+  Object.entries(forms).forEach(([k, f]) => f.hidden = k !== name);
+  $("#status-panel").hidden = true; $("#tabs").hidden = false;
+  document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("on", b.dataset.tab === name));
+  msg("");
+}
+document.querySelectorAll("[data-tab]").forEach(b => b.addEventListener("click", () => tab(b.dataset.tab)));
+function lock(form, on) { busy = on; form.querySelectorAll("button,input").forEach(el => el.disabled = on); }
+
+// 전체 동의
+$("#agree-all").addEventListener("change", e => ["#a1","#a2","#a3","#a4"].forEach(id => $(id).checked = e.target.checked));
+["#a1","#a2","#a3","#a4"].forEach(id => $(id).addEventListener("change", () =>
+  $("#agree-all").checked = ["#a1","#a2","#a3","#a4"].every(i => $(i).checked)));
+
+// 가입 가능 여부 (settings/site.signupOpen)
+getDoc(doc(db, "settings", "site")).then(s => {
+  const d = s.exists() ? s.data() : {};
+  if (d.signupOpen === false) {
+    const el = $("#signup-closed"); el.classList.add("show");
+    el.textContent = d.signupClosedMessage || "현재 신규 회원가입이 마감되었습니다. 운영자에게 문의해 주세요.";
+    forms.signup.querySelector("button[type=submit]").disabled = true;
+  }
+}).catch(() => {});
+
+function goHome() {
+  const dest = next && !/^https?:|^\/\//i.test(next) ? next : SITE.homePage;
+  location.replace(dest);
+}
+
+const STATUS = {
+  pending:   { ico: "⏳", title: "승인 대기 중입니다", desc: "가입 신청이 접수되었어요. 관리자 승인 후 이용하실 수 있습니다.", pill: "승인 대기" },
+  rejected:  { ico: "🙅", title: "가입이 반려되었습니다", desc: "자세한 사유는 운영자에게 문의해 주세요.", pill: "반려" },
+  suspended: { ico: "⛔", title: "이용이 정지된 계정입니다", desc: "이용 정지 사유는 운영자에게 문의해 주세요.", pill: "이용 정지" },
+};
+function showStatus(profile, user) {
+  const s = STATUS[profile.status] || STATUS.pending;
+  Object.values(forms).forEach(f => f.hidden = true); $("#tabs").hidden = true;
+  $("#status-panel").hidden = false;
+  $("#st-ico").textContent = s.ico; $("#st-title").textContent = s.title;
+  $("#st-desc").textContent = profile.statusReason ? `${s.desc}\n(사유: ${profile.statusReason})` : s.desc;
+  $("#st-pill").textContent = s.pill; $("#st-email").textContent = user.email;
+  $("#st-refresh").hidden = profile.status !== "pending";
+  msg("");
+}
+$("#st-logout").onclick = async () => { await signOut(auth); tab("login"); };
+$("#st-refresh").onclick = () => route(auth.currentUser, true);
+
+async function route(user, manual = false) {
+  if (!user) return;
+  const snap = await getDoc(doc(db, "users", user.uid));
+  if (!snap.exists()) return resumeSignup(user);
+  const p = snap.data();
+  if (p.status === "approved") return goHome();
+  showStatus(p, user);
+  if (manual) msg("아직 승인 전입니다. 조금만 기다려 주세요 🙏", "info");
+}
+
+// 로그인 계정은 있는데 회원 정보(users 문서)가 없는 경우
+// (가입 도중 창을 닫았거나 관리자가 회원 정보만 삭제한 경우) → 비밀번호 없이 정보 입력만 받아 가입 마무리
+let resumeUser = null;
+function resumeSignup(user) {
+  tab("signup");
+  resumeUser = user;
+  const f = forms.signup;
+  $("#su-cred").hidden = true;
+  ["email", "password", "password2"].forEach(n => f[n].required = false);
+  f.email.value = user.email || "";
+  if (user.displayName && !f.name.value) f.name.value = user.displayName;
+  const r = $("#su-resume"); r.classList.add("show");
+  r.textContent = `${user.email} 계정의 가입이 완료되지 않았습니다. 아래 정보를 입력해 가입을 마무리해 주세요.`;
+  f.querySelector("button[type=submit]").textContent = "가입 마무리";
+}
+function endResume() {
+  if (!resumeUser) return;
+  resumeUser = null;
+  const f = forms.signup;
+  $("#su-cred").hidden = false;
+  ["email", "password", "password2"].forEach(n => f[n].required = true);
+  f.email.value = "";
+  $("#su-resume").className = "msg";
+  f.querySelector("button[type=submit]").textContent = "회원가입";
+}
+// 다른 계정으로 로그인하려고 탭을 바꾸면 이어가기 모드 해제
+document.querySelectorAll("#tabs button").forEach(b => b.addEventListener("click", () => { if (b.dataset.tab !== "signup") endResume(); }));
+
+// 이미 로그인된 상태로 들어온 경우
+onAuthStateChanged(auth, user => { if (user && !busy) route(user).catch(e => msg(koError(e))); });
+
+// 로그인
+forms.login.addEventListener("submit", async e => {
+  e.preventDefault(); const f = e.target;
+  lock(f, true); msg("");
+  try {
+    const { user } = await signInWithEmailAndPassword(auth, f.email.value.trim(), f.password.value);
+    await route(user);
+  } catch (err) { msg(koError(err)); }
+  finally { lock(f, false); }
+});
+
+// 회원가입
+forms.signup.addEventListener("submit", async e => {
+  e.preventDefault(); const f = e.target;
+  const resuming = !!resumeUser && auth.currentUser?.uid === resumeUser.uid;
+  if (!resuming) {
+    if (f.password.value !== f.password2.value) return msg("비밀번호가 일치하지 않습니다.");
+    if (!/(?=.*[A-Za-z])(?=.*\d).{8,}/.test(f.password.value)) return msg("비밀번호는 영문과 숫자를 포함해 8자 이상이어야 합니다.");
+  }
+  if (!f.agreeTerms.checked || !f.agreePrivacy.checked || !f.agreePledge.checked) return msg("필수 약관에 모두 동의해 주세요.");
+
+  lock(f, true); msg("");
+  const email = f.email.value.trim().toLowerCase();
+  const code = f.inviteCode.value.trim().toUpperCase();
+  let user, created = false;
+  try {
+    if (resuming) user = resumeUser;
+    else { ({ user } = await createUserWithEmailAndPassword(auth, email, f.password.value)); created = true; }
+    await updateProfile(user, { displayName: f.name.value.trim() });
+
+    const base = {
+      email: user.email, name: f.name.value.trim(),
+      phone: f.phone.value.replace(/[^0-9]/g, "").replace(/(\d{3})(\d{3,4})(\d{4})/, "$1-$2-$3"),
+      affiliation: f.affiliation.value.trim(), cohort: f.cohort.value.trim(),
+      role: "member", agreeTerms: true, agreePrivacy: true, agreePledge: true,
+      agreeMarketing: f.agreeMarketing.checked,
+      createdAt: serverTimestamp(), updatedAt: serverTimestamp(), loginCount: 0
+    };
+    const userRef = doc(db, "users", user.uid);
+    let approved = false;
+
+    if (code) {
+      try {
+        const b = writeBatch(db);
+        b.set(userRef, { ...base, inviteCode: code, status: "approved" });
+        b.update(doc(db, "inviteCodes", code), { usedCount: increment(1) });
+        await b.commit(); approved = true;
+      } catch (_) { /* 코드가 무효 → 승인 대기로 등록 */ }
+    }
+    if (!approved) await setDoc(userRef, { ...base, ...(code ? { inviteCode: code } : {}), status: "pending" });
+
+    if (created) sendEmailVerification(user).catch(() => {});
+    endResume();
+    if (approved) { msg("가입이 완료되었습니다! 잠시 후 이동합니다 🎉", "ok"); setTimeout(goHome, 900); }
+    else {
+      await route(user);
+      if (code) msg("가입코드가 유효하지 않아 ‘승인 대기’로 접수되었습니다.", "info");
+      else msg("가입 신청이 완료되었습니다. 승인되면 바로 이용하실 수 있어요.", "ok");
+    }
+  } catch (err) {
+    // 새로 만든 인증 계정은 프로필 저장 실패 시 정리 (이어가기 계정은 유지)
+    if (user && created) { try { await deleteUser(user); } catch (_) {} }
+    msg(err?.code === "permission-denied" && $("#signup-closed").classList.contains("show")
+      ? "현재 신규 회원가입이 마감되었습니다." : koError(err));
+  } finally { lock(f, false); }
+});
+
+// 비밀번호 재설정
+forms.reset.addEventListener("submit", async e => {
+  e.preventDefault(); const f = e.target;
+  lock(f, true);
+  try { await sendPasswordResetEmail(auth, f.email.value.trim()); msg("재설정 메일을 보냈습니다. 메일함(스팸함 포함)을 확인해 주세요.", "ok"); }
+  catch (err) { msg(koError(err)); }
+  finally { lock(f, false); }
+});
+
+// 가드에서 넘어온 사유 안내
+const reason = params.get("reason");
+if (reason === "noprofile") msg("회원 정보 입력이 필요합니다.", "info");
+if (reason === "error") msg("일시적인 오류가 발생했습니다. 다시 로그인해 주세요.");
+</script>
+</body>
+</html>
