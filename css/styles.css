@@ -1071,3 +1071,138 @@ input:focus-visible {
   outline: 3px solid rgba(22, 140, 255, 0.35);
   outline-offset: 2px;
 }
+
+/* ===== 회원 메뉴 (헤더 로그인·회원가입·관리자) ===== */
+.auth-nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.auth-nav:empty {
+  display: none;
+}
+.auth-name {
+  font-size: 14px;
+  font-weight: 650;
+  color: var(--navy);
+  margin-right: 2px;
+  white-space: nowrap;
+}
+.auth-btn {
+  display: inline-flex;
+  align-items: center;
+  height: 38px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1.5px solid var(--border);
+  background: #fff;
+  color: var(--navy);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 650;
+  white-space: nowrap;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 180ms ease, border-color 180ms ease;
+}
+.auth-btn:hover {
+  background: var(--ice-blue);
+  border-color: var(--deep-blue);
+}
+.auth-btn-primary {
+  background: var(--deep-blue);
+  border-color: var(--deep-blue);
+  color: #fff;
+}
+.auth-btn-primary:hover {
+  background: var(--bright-blue);
+  border-color: var(--bright-blue);
+}
+.auth-btn-admin {
+  border-color: var(--deep-blue);
+  color: var(--deep-blue);
+}
+
+@media (max-width: 639px) {
+  #topSearchBtn {
+    padding: 0 12px;
+  }
+  #topSearchBtn .btn-label {
+    display: none;
+  }
+}
+@media (max-width: 480px) {
+  .header-actions {
+    gap: 6px;
+  }
+  .auth-name {
+    display: none;
+  }
+  .auth-btn {
+    height: 34px;
+    padding: 0 10px;
+    font-size: 13px;
+  }
+}
+
+/* ===== 회원 전용 안내 (비회원·승인 대기) ===== */
+.member-lock {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 40px 20px;
+  border: 1.5px dashed var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface-soft);
+}
+.member-lock-icon {
+  display: inline-flex;
+  width: 52px;
+  height: 52px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--ice-blue);
+  color: var(--deep-blue);
+}
+.member-lock-icon svg {
+  width: 26px;
+  height: 26px;
+}
+.member-lock h3 {
+  margin: 14px 0 6px;
+  font-size: 19px;
+  color: var(--navy);
+}
+.member-lock p {
+  margin: 0 auto;
+  max-width: 420px;
+  color: var(--text-secondary);
+}
+.member-lock-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 18px;
+}
+.member-lock.compact {
+  padding: 22px 14px;
+  margin: 8px 4px;
+}
+.member-lock.compact h3 {
+  font-size: 16px;
+}
+.member-lock.compact p {
+  font-size: 13px;
+}
+.member-lock.compact .btn {
+  height: 40px;
+  padding: 0 16px;
+  font-size: 14px;
+}
+
+.footer-admin {
+  color: inherit;
+  text-decoration: underline;
+  opacity: 0.8;
+}
