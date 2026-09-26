@@ -228,6 +228,7 @@ function updateToggleAllBtn() {
 function renderDrawer() {
   const nav = $("drawerNav");
   const groups = groupBots().filter((c) => c.bots.length || !isMember());
+  if (!groups.length) { nav.innerHTML = ""; return; } // 불러오는 중에 '카테고리 0' 이 깜빡이지 않도록
   const pinned = groups.filter((c) => c.pinned);
 
   const pinnedHtml = pinned.map((c) => `
