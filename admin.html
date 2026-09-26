@@ -44,9 +44,11 @@
   .ico{display:inline-flex;width:30px;height:30px;border-radius:9px;background:#ede9fe;color:var(--pri);align-items:center;justify-content:center;flex-shrink:0;vertical-align:middle}
   .ico svg{width:17px;height:17px}
   .ico.inline{width:26px;height:26px}
-  .cat-table td{vertical-align:middle}
-  .cat-table td:nth-child(2){display:flex;gap:6px;align-items:center}
+  .cat-table td{vertical-align:middle;height:58px}
+  .cat-table .icon-pick{display:flex;gap:6px;align-items:center}
+  .cat-table input:not([type=checkbox]),.cat-table select{height:38px;box-sizing:border-box}
   .cat-table input:not([type=checkbox]){width:100%}
+  .cat-table input[type=checkbox]{width:18px;height:18px;margin:0;vertical-align:middle}
   .cat-table input.w-num{width:64px}
   .cat-table select{max-width:150px}
   .cat-table .add-row td{background:#faf5ff;border-bottom:0}
@@ -301,7 +303,7 @@ function renderBotsTab() {
     <table class="cat-table"><thead><tr><th>순서</th><th>아이콘</th><th>카테고리 이름</th><th>설명 (사이트에 표시)</th><th>먼저 사용</th><th>게시</th><th>챗봇</th><th></th></tr></thead>
     <tbody>${cats.map(c => `<tr data-cid="${c.id}">
       <td><input type="number" class="w-num" data-f="order" value="${c.order ?? 0}"></td>
-      <td><span class="ico">${categoryIcon(c.icon)}</span><select data-f="icon">${iconOptions(CATEGORY_ICONS, c.icon)}</select></td>
+      <td><div class="icon-pick"><span class="ico">${categoryIcon(c.icon)}</span><select data-f="icon">${iconOptions(CATEGORY_ICONS, c.icon)}</select></div></td>
       <td><input data-f="name" value="${esc(c.name)}" maxlength="30"></td>
       <td><input data-f="description" value="${esc(c.description || "")}" maxlength="60"></td>
       <td><input type="checkbox" data-f="pinned" ${c.pinned ? "checked" : ""}></td>
@@ -311,7 +313,7 @@ function renderBotsTab() {
     </tbody>
     <tfoot><tr class="add-row">
       <td><input type="number" class="w-num" id="nc-order" value="${nextOrder}"></td>
-      <td><span class="ico" id="nc-ico">${categoryIcon("star")}</span><select id="nc-icon">${iconOptions(CATEGORY_ICONS, "star")}</select></td>
+      <td><div class="icon-pick"><span class="ico" id="nc-ico">${categoryIcon("star")}</span><select id="nc-icon">${iconOptions(CATEGORY_ICONS, "star")}</select></div></td>
       <td><input id="nc-name" placeholder="새 카테고리 이름" maxlength="30"></td>
       <td><input id="nc-desc" placeholder="예) 봄 시즌 한정 컨셉" maxlength="60"></td>
       <td><input type="checkbox" id="nc-pin"></td><td></td><td></td>
