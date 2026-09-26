@@ -1,58 +1,34 @@
 // ChatCon 이모티콘 프롬프트 챗봇 허브 — 렌더링 & 필터 로직
-// 챗봇 링크는 이 파일에 두지 않고 Firestore(bots)에서 불러옵니다.
-// 보안 규칙상 승인된 회원만 읽을 수 있어 비회원은 소스 보기로도 링크를 볼 수 없습니다.
-// 챗봇 추가·수정은 관리자 페이지(admin.html) > 챗봇 탭에서 합니다.
+// 데이터는 모두 Firestore 에서 불러옵니다.
+//  - categories (공개): 카테고리 이름·순서·아이콘 → 아코디언 구성
+//  - tools      (공개): 실무 도구·마켓 링크
+//  - settings/site (공개): 비회원용 개수 통계, 원격지원 링크
+//  - bots (승인 회원 전용): 챗봇 링크 — 비회원은 소스 보기로도 볼 수 없음
+// 카테고리·챗봇·도구 추가/수정은 관리자 페이지(admin.html)에서 하면 개수와 그룹이 자동 반영됩니다.
 import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { collection, getDocs, query, where, doc, getDoc, updateDoc, addDoc, serverTimestamp, increment }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { auth, db, SITE } from "../firebase-init.js";
+import { categoryIcon, toolIcon } from "../icons.js";
 
-// 기본 카테고리 (아이콘·순서용). 관리자 페이지에서 새 카테고리를 쓰면 탭이 자동으로 추가됩니다.
-const CATEGORIES = [
-  { id: "all", label: "전체" },
-  { id: "christmas", label: "크리스마스 시즌" },
-  { id: "chuseok", label: "추석 시즌" },
-  { id: "copyright", label: "저작권 등록" },
-  { id: "reaction", label: "상황·리액션" },
-  { id: "greeting", label: "인사·축하" },
-  { id: "emotion", label: "감정·일상" },
-];
-
-// 카테고리별 라인 아이콘 (이모지 대신 사용하는 일관된 SVG 아이콘 세트)
-const CATEGORY_ICON = {
-  copyright: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-3z"/><path d="M9 12l2 2 4-4"/></svg>`,
-  reaction: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.5 8.5 0 01-8.5 8.5c-1.3 0-2.5-.3-3.6-.8L4 20l1-4.4A8.5 8.5 0 1121 11.5z"/></svg>`,
-  greeting: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 10h.01M16 10h.01M8 15c1.2 1 2.6 1.5 4 1.5s2.8-.5 4-1.5"/></svg>`,
-  emotion: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20s-7-4.4-9.5-8.8C1 8 2.4 5 5.6 4.6 8 4.3 10 5.6 12 8c2-2.4 4-3.7 6.4-3.4C21.6 5 23 8 21.5 11.2 19 15.6 12 20 12 20z"/></svg>`,
-  chuseok: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8.5 8.5 0 1110.5 4a7 7 0 009.5 10.5z"/></svg>`,
-  christmas: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l5 7h-3l4 6H6l4-6H7l5-7z"/><line x1="12" y1="19" x2="12" y2="21"/></svg>`,
-};
-
-const TOOLS = [
-  { title: "카카오 이모티콘 스튜디오",
-    icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4C6.5 4 2 7.6 2 12c0 2.6 1.6 4.9 4 6.3L5 22l4.3-2.3c.9.2 1.8.3 2.7.3 5.5 0 10-3.6 10-8s-4.5-8-10-8z"/></svg>`,
-    desc: "완성한 이모티콘을 카카오에 제안합니다.",
-    url: "https://emoticonstudio.kakao.com/" },
-  { title: "OGQ 크리에이터 스튜디오",
-    icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="1.5"/><path d="M21 16l-5.5-5.5a2 2 0 00-2.8 0L4 19"/></svg>`,
-    desc: "완성한 스티커를 OGQ에 업로드·제안합니다.",
-    url: "https://oid.ogq.me/?callbackUrl=https://creators.ogq.me/upload/sticker&serviceId=OCS" },
-  { title: "이미지 분할기 (크롬 확장)",
-    icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><line x1="8.1" y1="7.5" x2="20" y2="19"/><line x1="8.1" y1="16.5" x2="20" y2="5"/></svg>`,
-    desc: "여러 컷이 담긴 이미지를 낱장으로 자동 분할합니다.",
-    url: "https://chromewebstore.google.com/detail/image-splitter/khkhfdckilojgneleiifofcaihjjohpi?utm_source=chatgpt.com" },
-];
-
-const LABEL_TO_ID = Object.fromEntries(CATEGORIES.map((c) => [c.label, c.id]));
-const iconFor = (label) => CATEGORY_ICON[LABEL_TO_ID[label]] || CATEGORY_ICON.reaction;
+const DEFAULT_REMOTE_URL = "https://remotedesktop.google.com/home?pli=1";
+const LOGIN_URL = SITE.loginPage;
+const SIGNUP_URL = `${SITE.loginPage}#signup`;
+const OPEN_KEY = "chatcon_open_categories";
 
 // access: loading | guest | pending | rejected | suspended | noprofile | error | member
-const state = { category: "all", query: "", access: "loading", profile: null };
-let BOTS = []; // Firestore bots: { title, category, categoryOrder, order, url, description, badge, tags }
-let tabs = [{ id: "all", label: "전체" }];
+const state = { access: "loading", profile: null, query: "", open: loadOpenState() };
+let CATEGORIES = []; // { id, name, icon, description, order, pinned }
+let TOOLS = [];
+let SETTINGS = {};
+let BOTS = []; // { id, title, categoryId, category, order, url, description, badge, tags }
 
-const externalLinkIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><path d="M15 3h6v6"/><path d="M10 14L21 3"/></svg>`;
-const lockIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2.5"/><path d="M8 10V7a4 4 0 018 0v3"/></svg>`;
+const $ = (id) => document.getElementById(id);
+const ic = (inner, size = 18) =>
+  `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${inner}</svg>`;
+const externalLinkIcon = ic(`<path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><path d="M15 3h6v6"/><path d="M10 14L21 3"/>`);
+const chevronIcon = ic(`<path d="M6 9l6 6 6-6"/>`, 20);
+const lockIcon = ic(`<rect x="4" y="10" width="16" height="11" rx="2.5"/><path d="M8 10V7a4 4 0 018 0v3"/>`);
 
 function escapeHtml(str) {
   const div = document.createElement("div");
@@ -61,9 +37,14 @@ function escapeHtml(str) {
 }
 const safeUrl = (u) => (/^https?:\/\//i.test(u || "") ? u : "#");
 
+function loadOpenState() {
+  try { return new Set(JSON.parse(localStorage.getItem(OPEN_KEY) || "[]")); } catch (_) { return new Set(); }
+}
+function saveOpenState() {
+  try { localStorage.setItem(OPEN_KEY, JSON.stringify([...state.open])); } catch (_) {}
+}
+
 // ===== 회원 상태별 안내 =====
-const LOGIN_URL = SITE.loginPage;
-const SIGNUP_URL = `${SITE.loginPage}#signup`;
 const LOCK = {
   loading: { title: "챗봇 목록을 불러오는 중…", desc: "", actions: "" },
   guest: {
@@ -110,7 +91,7 @@ function lockPanel(compact = false) {
 
 // ===== 헤더 로그인 영역 =====
 function renderAuthNav() {
-  const nav = document.getElementById("authNav");
+  const nav = $("authNav");
   if (!nav) return;
   if (state.access === "loading") { nav.innerHTML = ""; return; }
   if (!auth.currentUser) {
@@ -123,150 +104,221 @@ function renderAuthNav() {
   nav.innerHTML = `<span class="auth-name">${escapeHtml(p?.name || "회원")}님</span>
     ${isAdmin ? `<a class="auth-btn auth-btn-admin" href="${SITE.adminPage}">관리자</a>` : ""}
     <button type="button" class="auth-btn" id="logoutBtn">로그아웃</button>`;
-  document.getElementById("logoutBtn").addEventListener("click", async () => {
+  $("logoutBtn").addEventListener("click", async () => {
     await logAccess("logout");
     await signOut(auth);
     location.reload();
   });
 }
 
-// ===== 챗봇 목록 =====
-function buildTabs() {
-  const order = new Map();
-  BOTS.forEach((b) => order.set(b.category, Math.min(order.get(b.category) ?? Infinity, b.categoryOrder ?? 99)));
-  tabs = [{ id: "all", label: "전체" },
-    ...[...order.entries()].sort((a, b) => a[1] - b[1]).map(([label]) => ({ id: label, label }))];
-}
+// ===== 카테고리별 그룹 =====
+const isMember = () => state.access === "member";
 
-function renderTabs() {
-  const tabsEl = document.getElementById("tabs");
-  if (state.access !== "member") { tabsEl.innerHTML = ""; return; }
-  tabsEl.innerHTML = tabs.map((c) => {
-    const count = c.id === "all" ? BOTS.length : BOTS.filter((b) => b.category === c.id).length;
-    return `<button type="button" class="tab-btn${c.id === state.category ? " active" : ""}" role="tab" aria-selected="${c.id === state.category}" data-cat="${escapeHtml(c.id)}">${escapeHtml(c.label)} <span style="opacity:.7">${count}</span></button>`;
-  }).join("");
-
-  tabsEl.querySelectorAll(".tab-btn").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      state.category = btn.dataset.cat;
-      renderTabs();
-      renderGrid();
-    });
+// 챗봇 → 카테고리 매칭 (categoryId 우선, 없으면 이름, 그래도 없으면 '기타')
+function groupBots() {
+  const byName = new Map(CATEGORIES.map((c) => [c.name, c.id]));
+  const groups = new Map(CATEGORIES.map((c) => [c.id, []]));
+  const etc = [];
+  BOTS.forEach((b) => {
+    const cid = groups.has(b.categoryId) ? b.categoryId : byName.get(b.category);
+    (cid ? groups.get(cid) : etc).push(b);
   });
+  const list = CATEGORIES.map((c) => ({ ...c, bots: groups.get(c.id) }));
+  if (etc.length) list.push({ id: "_etc", name: "기타", icon: "star", description: "", bots: etc });
+  return list;
 }
 
-function renderGrid() {
-  const grid = document.getElementById("botGrid");
-  const empty = document.getElementById("emptyState");
-  const countEl = document.getElementById("resultCount");
+function categoryCount(c) {
+  if (isMember()) return c.bots.length;
+  return SETTINGS.stats?.perCategory?.[c.id] ?? null;
+}
 
-  if (state.access !== "member") {
+function matches(b, c, q) {
+  return [b.title, b.description, c.name, ...(b.tags || [])].join(" ").toLowerCase().includes(q);
+}
+
+function botCard(b) {
+  return `
+    <a class="bot-card" href="${escapeHtml(safeUrl(b.url))}" target="_blank" rel="noopener noreferrer">
+      <div class="bot-card-top">
+        <h3 class="bot-title">${escapeHtml(b.title)}</h3>
+        ${b.badge ? `<span class="bot-badge">${escapeHtml(b.badge)}</span>` : ""}
+      </div>
+      ${b.description ? `<p class="bot-desc">${escapeHtml(b.description)}</p>` : ""}
+      <span class="bot-open-btn">챗봇 열기 ${externalLinkIcon}</span>
+    </a>`;
+}
+
+function renderAccordion() {
+  const wrap = $("botAccordion");
+  const empty = $("emptyState");
+  const countEl = $("resultCount");
+  const q = state.query.trim().toLowerCase();
+  const groups = groupBots().filter((c) => c.bots.length || !isMember());
+
+  if (!CATEGORIES.length && !isMember()) {
+    wrap.innerHTML = lockPanel();
     countEl.textContent = "";
     empty.classList.remove("show");
-    grid.innerHTML = lockPanel();
     return;
   }
 
-  const q = state.query.trim().toLowerCase();
-  const filtered = BOTS.filter((b) => {
-    const matchCat = state.category === "all" || b.category === state.category;
-    const text = [b.title, b.description, ...(b.tags || [])].join(" ").toLowerCase();
-    return matchCat && (!q || text.includes(q));
+  let shownBots = 0;
+  const html = groups.map((c) => {
+    const found = isMember() && q ? c.bots.filter((b) => matches(b, c, q)) : c.bots;
+    const nameHit = q && c.name.toLowerCase().includes(q);
+    if (q && !found.length && !nameHit) return "";
+    const bots = q && nameHit && !found.length ? c.bots : found;
+    shownBots += bots.length;
+    const total = categoryCount(c);
+    const open = q ? true : state.open.has(c.id);
+    const preview = isMember() ? bots.slice(0, 3).map((b) => b.title).join(" · ") : "";
+    const countLabel = total == null ? "" : q && isMember() && bots.length !== total ? `${bots.length}/${total}` : `${total}`;
+    return `
+    <section class="acc${open ? " open" : ""}${c.pinned ? " pinned" : ""}" id="cat-${escapeHtml(c.id)}" data-cat="${escapeHtml(c.id)}">
+      <button type="button" class="acc-head" aria-expanded="${open}" aria-controls="panel-${escapeHtml(c.id)}">
+        <span class="acc-icon">${categoryIcon(c.icon)}</span>
+        <span class="acc-text">
+          <span class="acc-title">${escapeHtml(c.name)}${c.pinned ? `<em class="acc-pin">먼저 사용</em>` : ""}</span>
+          <span class="acc-sub">${escapeHtml(c.description || preview || "")}</span>
+        </span>
+        ${countLabel ? `<span class="acc-count">${countLabel}<small>개</small></span>` : ""}
+        <span class="acc-chevron">${chevronIcon}</span>
+      </button>
+      <div class="acc-panel" id="panel-${escapeHtml(c.id)}" role="region">
+        <div class="acc-inner">
+          ${isMember() ? `<div class="acc-grid">${bots.map(botCard).join("")}</div>` : lockPanel(true)}
+        </div>
+      </div>
+    </section>`;
+  }).join("");
+
+  wrap.innerHTML = html;
+  const allBots = BOTS.length || SETTINGS.stats?.bots || 0;
+  countEl.textContent = isMember() ? (q ? `${shownBots}개 검색됨` : `${allBots}개`) : allBots ? `${allBots}개` : "";
+  empty.classList.toggle("show", !html.trim());
+
+  wrap.querySelectorAll(".acc-head").forEach((head) => {
+    head.addEventListener("click", () => toggleCategory(head.closest(".acc").dataset.cat));
   });
-
-  countEl.textContent = `${filtered.length}개`;
-
-  if (filtered.length === 0) {
-    grid.innerHTML = "";
-    empty.classList.add("show");
-    return;
-  }
-  empty.classList.remove("show");
-
-  grid.innerHTML = filtered
-    .map(
-      (b) => `
-    <a class="bot-card" href="${escapeHtml(safeUrl(b.url))}" target="_blank" rel="noopener noreferrer">
-      <span class="bot-icon" aria-hidden="true">${iconFor(b.category)}</span>
-      <span class="bot-category">${escapeHtml(b.category)}${b.badge ? ` · ${escapeHtml(b.badge)}` : ""}</span>
-      <h3 class="bot-title">${escapeHtml(b.title)}</h3>
-      <p class="bot-desc">${escapeHtml(b.description)}</p>
-      <span class="bot-open-btn">챗봇 열기 ${externalLinkIcon}</span>
-    </a>`
-    )
-    .join("");
+  updateToggleAllBtn();
 }
 
-function renderTools() {
-  const grid = document.getElementById("toolsGrid");
-  grid.innerHTML = TOOLS.map(
-    (t) => `
-    <a class="tool-card" href="${t.url}" target="_blank" rel="noopener noreferrer">
-      <span class="tool-icon" aria-hidden="true">${t.icon}</span>
-      <h3>${escapeHtml(t.title)}</h3>
-      <p>${escapeHtml(t.desc)}</p>
-      <span class="btn tool-card-cta">바로가기 →</span>
-    </a>`
-  ).join("");
+function toggleCategory(id, force) {
+  const el = $(`cat-${id}`);
+  if (!el) return;
+  const open = force ?? !el.classList.contains("open");
+  el.classList.toggle("open", open);
+  el.querySelector(".acc-head").setAttribute("aria-expanded", String(open));
+  if (!state.query) { open ? state.open.add(id) : state.open.delete(id); saveOpenState(); }
+  updateToggleAllBtn();
 }
 
-// 왼쪽 메뉴(드로어): 필터와 무관하게 전체 컨셉을 카테고리별로 항상 표시
-function buildDrawerSection(label) {
-  const items = BOTS.filter((b) => b.category === label);
-  if (items.length === 0) return "";
-  const links = items
-    .map(
-      (b) => `
-    <li>
-      <a class="drawer-link" href="${escapeHtml(safeUrl(b.url))}" target="_blank" rel="noopener noreferrer">
-        <span class="drawer-link-icon" aria-hidden="true">${iconFor(b.category)}</span>
-        <span class="drawer-link-text">${escapeHtml(b.title)}</span>
-        <span class="drawer-external-icon" aria-hidden="true">${externalLinkIcon}</span>
-      </a>
-    </li>`
-    )
-    .join("");
-  return `
-  <div class="drawer-section">
-    <h3 class="drawer-section-title">${escapeHtml(label)} <span class="drawer-count">${items.length}</span></h3>
-    <ul class="drawer-list">${links}</ul>
-  </div>`;
+function updateToggleAllBtn() {
+  const btn = $("toggleAllBtn");
+  if (!btn) return;
+  const items = [...document.querySelectorAll("#botAccordion .acc")];
+  const allOpen = items.length && items.every((x) => x.classList.contains("open"));
+  btn.dataset.mode = allOpen ? "close" : "open";
+  btn.querySelector("span").textContent = allOpen ? "모두 접기" : "모두 펼치기";
+  btn.hidden = !items.length || !!state.query;
 }
 
+// ===== 왼쪽 메뉴: 카테고리 바로가기 + 고정 카테고리 챗봇 =====
 function renderDrawer() {
-  const nav = document.getElementById("drawerNav");
-  if (state.access !== "member") { nav.innerHTML = lockPanel(true); return; }
+  const nav = $("drawerNav");
+  const groups = groupBots().filter((c) => c.bots.length || !isMember());
+  const pinned = groups.filter((c) => c.pinned);
 
-  // 저작권등록용 챗봇은 매 컨셉 제작마다 먼저 써야 하므로 왼쪽 메뉴 최상단에 고정
-  const PINNED = "저작권 등록";
-  const pinned = `<div class="drawer-pinned">${buildDrawerSection(PINNED)}</div>`;
-  const rest = tabs.filter((c) => c.id !== "all" && c.label !== PINNED)
-    .map((c) => buildDrawerSection(c.label))
-    .join("");
+  const pinnedHtml = pinned.map((c) => `
+    <div class="drawer-section">
+      <h3 class="drawer-section-title">${escapeHtml(c.name)} <span class="drawer-count">먼저 사용</span></h3>
+      <ul class="drawer-list">${isMember()
+        ? c.bots.map((b) => `
+        <li><a class="drawer-link" href="${escapeHtml(safeUrl(b.url))}" target="_blank" rel="noopener noreferrer">
+          <span class="drawer-link-icon">${categoryIcon(c.icon)}</span>
+          <span class="drawer-link-text">${escapeHtml(b.title)}</span>
+          <span class="drawer-external-icon">${externalLinkIcon}</span></a></li>`).join("")
+        : `<li><a class="drawer-link" href="#cat-${escapeHtml(c.id)}" data-jump="${escapeHtml(c.id)}">
+          <span class="drawer-link-icon">${lockIcon}</span><span class="drawer-link-text">로그인 후 이용</span></a></li>`}
+      </ul>
+    </div>`).join("");
 
-  nav.innerHTML = pinned + rest;
+  const catLinks = groups.map((c) => {
+    const n = categoryCount(c);
+    return `<li><a class="drawer-cat" href="#cat-${escapeHtml(c.id)}" data-jump="${escapeHtml(c.id)}">
+      <span class="drawer-link-icon">${categoryIcon(c.icon)}</span>
+      <span class="drawer-link-text">${escapeHtml(c.name)}</span>
+      ${n == null ? "" : `<span class="drawer-count">${n}</span>`}</a></li>`;
+  }).join("");
+
+  nav.innerHTML = (pinnedHtml ? `<div class="drawer-pinned">${pinnedHtml}</div>` : "") + `
+    <div class="drawer-section">
+      <h3 class="drawer-section-title">카테고리 <span class="drawer-count">${groups.length}</span></h3>
+      <ul class="drawer-list">${catLinks}</ul>
+    </div>`;
+
+  nav.querySelectorAll("[data-jump]").forEach((a) => a.addEventListener("click", (e) => {
+    e.preventDefault();
+    jumpToCategory(a.dataset.jump);
+  }));
 }
 
-function renderDrawerTools() {
-  const list = document.getElementById("drawerTools");
-  list.innerHTML = TOOLS.map(
-    (t) => `<li><a href="${t.url}" target="_blank" rel="noopener noreferrer"><span class="drawer-tool-icon" aria-hidden="true">${t.icon}</span><span>${escapeHtml(t.title)}</span></a></li>`
+function jumpToCategory(id) {
+  if (state.query) { state.query = ""; $("botSearch").value = ""; renderAccordion(); }
+  toggleCategory(id, true);
+  closeDrawer();
+  const el = $(`cat-${id}`);
+  if (el) {
+    el.scrollIntoView({ behavior: "smooth", block: "start" });
+    el.classList.add("flash");
+    setTimeout(() => el.classList.remove("flash"), 1200);
+  }
+}
+
+// ===== 실무 도구 · 통계 · 원격지원 =====
+function renderTools() {
+  const grid = $("toolsGrid");
+  grid.innerHTML = TOOLS.length ? TOOLS.map((t) => `
+    <a class="tool-card" href="${escapeHtml(safeUrl(t.url))}" target="_blank" rel="noopener noreferrer">
+      <span class="tool-icon" aria-hidden="true">${toolIcon(t.icon)}</span>
+      <h3>${escapeHtml(t.title)}</h3>
+      <p>${escapeHtml(t.description)}</p>
+      <span class="btn tool-card-cta">바로가기 →</span>
+    </a>`).join("") : `<p class="tools-empty">등록된 도구가 없습니다.</p>`;
+
+  $("drawerTools").innerHTML = TOOLS.map((t) =>
+    `<li><a href="${escapeHtml(safeUrl(t.url))}" target="_blank" rel="noopener noreferrer"><span class="drawer-tool-icon" aria-hidden="true">${toolIcon(t.icon)}</span><span>${escapeHtml(t.title)}</span></a></li>`
   ).join("");
+}
+
+function renderStats() {
+  const bots = isMember() ? BOTS.length : SETTINGS.stats?.bots;
+  const cats = isMember() ? groupBots().filter((c) => c.bots.length).length : CATEGORIES.length;
+  const set = (id, v) => { const el = $(id); if (el) el.textContent = v ?? "–"; };
+  set("statBots", bots);
+  set("statCats", cats || null);
+  set("statTools", TOOLS.length || null);
+}
+
+function renderRemote() {
+  const url = safeUrl(SETTINGS.remoteSupportUrl || DEFAULT_REMOTE_URL);
+  document.querySelectorAll("[data-remote]").forEach((a) => { a.href = url; });
 }
 
 function renderAll() {
   renderAuthNav();
-  renderTabs();
-  renderGrid();
+  renderAccordion();
   renderDrawer();
+  renderStats();
 }
 
+// ===== 드로어 (모바일 메뉴) =====
+let closeDrawer = () => {};
 function initDrawer() {
-  const drawer = document.getElementById("sideDrawer");
-  const overlay = document.getElementById("drawerOverlay");
-  const toggleBtn = document.getElementById("menuToggle");
-  const heroBtn = document.getElementById("heroMenuBtn");
-  const closeBtn = document.getElementById("drawerClose");
+  const drawer = $("sideDrawer");
+  const overlay = $("drawerOverlay");
+  const toggleBtn = $("menuToggle");
 
   function openDrawer() {
     drawer.classList.add("open");
@@ -274,42 +326,56 @@ function initDrawer() {
     document.body.classList.add("no-scroll");
     toggleBtn.setAttribute("aria-expanded", "true");
   }
-
-  function closeDrawer() {
+  closeDrawer = () => {
     drawer.classList.remove("open");
     overlay.classList.remove("show");
     document.body.classList.remove("no-scroll");
     toggleBtn.setAttribute("aria-expanded", "false");
-  }
+  };
 
-  toggleBtn.addEventListener("click", () => {
-    drawer.classList.contains("open") ? closeDrawer() : openDrawer();
-  });
-  heroBtn.addEventListener("click", openDrawer);
-  closeBtn.addEventListener("click", closeDrawer);
+  toggleBtn.addEventListener("click", () => (drawer.classList.contains("open") ? closeDrawer() : openDrawer()));
+  $("heroMenuBtn")?.addEventListener("click", openDrawer);
+  $("drawerClose").addEventListener("click", closeDrawer);
   overlay.addEventListener("click", closeDrawer);
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && drawer.classList.contains("open")) closeDrawer();
   });
-
   // 데스크톱(사이드바 고정 표시)로 리사이즈되면 모바일 오버레이 상태를 정리
-  const desktopQuery = window.matchMedia("(min-width: 900px)");
-  desktopQuery.addEventListener("change", (e) => {
-    if (e.matches) closeDrawer();
-  });
+  window.matchMedia("(min-width: 900px)").addEventListener("change", (e) => { if (e.matches) closeDrawer(); });
 }
 
 function initSearch() {
-  const input = document.getElementById("botSearch");
+  const input = $("botSearch");
   input.addEventListener("input", () => {
     state.query = input.value;
-    renderGrid();
+    renderAccordion();
   });
+  $("topSearchBtn").addEventListener("click", () => {
+    $("toolbar").scrollIntoView({ behavior: "smooth", block: "start" });
+    input.focus({ preventScroll: true });
+  });
+  $("toggleAllBtn").addEventListener("click", (e) => {
+    const open = e.currentTarget.dataset.mode !== "close";
+    document.querySelectorAll("#botAccordion .acc").forEach((x) => toggleCategory(x.dataset.cat, open));
+  });
+}
 
-  document.getElementById("topSearchBtn").addEventListener("click", () => {
-    document.getElementById("toolbar").scrollIntoView({ behavior: "smooth", block: "start" });
-    input.focus();
-  });
+// ===== 데이터 불러오기 =====
+async function loadPublic() {
+  const [cats, tools, site] = await Promise.all([
+    getDocs(collection(db, "categories")),
+    getDocs(collection(db, "tools")),
+    getDoc(doc(db, "settings", "site")),
+  ]);
+  const byOrder = (a, b) => (a.order ?? 99) - (b.order ?? 99);
+  CATEGORIES = cats.docs.map((d) => ({ id: d.id, ...d.data() })).filter((c) => c.active !== false).sort(byOrder);
+  TOOLS = tools.docs.map((d) => ({ id: d.id, ...d.data() })).filter((t) => t.active !== false).sort(byOrder);
+  SETTINGS = site.exists() ? site.data() : {};
+}
+
+async function loadBots() {
+  const snap = await getDocs(query(collection(db, "bots"), where("active", "==", true)));
+  BOTS = snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 }
 
 // ===== 로그인 상태 확인 & 접속 기록 =====
@@ -336,14 +402,12 @@ function recordVisitOncePerSession(user) {
   logAccess("visit");
 }
 
-async function loadBots() {
-  const snap = await getDocs(query(collection(db, "bots"), where("active", "==", true)));
-  BOTS = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
-    .sort((a, b) => (a.categoryOrder ?? 99) - (b.categoryOrder ?? 99) || (a.order ?? 0) - (b.order ?? 0));
-  buildTabs();
-}
+const publicReady = loadPublic()
+  .catch((e) => console.error("[chatcon] 공개 데이터 로드 실패", e))
+  .then(() => { renderTools(); renderRemote(); renderAll(); });
 
 onAuthStateChanged(auth, async (user) => {
+  await publicReady;
   state.profile = null;
   BOTS = [];
   if (!user) { state.access = "guest"; return renderAll(); }
@@ -364,7 +428,5 @@ onAuthStateChanged(auth, async (user) => {
 
 // 모듈 스크립트는 문서 파싱 후 실행되므로 바로 초기화
 renderAll();
-renderTools();
-renderDrawerTools();
 initSearch();
 initDrawer();

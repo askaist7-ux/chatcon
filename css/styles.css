@@ -1206,3 +1206,310 @@ input:focus-visible {
   text-decoration: underline;
   opacity: 0.8;
 }
+
+/* ===== 원격지원 버튼 ===== */
+.btn-remote {
+  padding: 0 16px;
+}
+@media (max-width: 639px) {
+  .btn-remote {
+    padding: 0 12px;
+  }
+  .btn-remote .btn-label {
+    display: none;
+  }
+}
+@media (max-width: 420px) {
+  .btn-remote {
+    display: none; /* 좁은 화면: 원격지원은 히어로 버튼·실무 도구에서 제공 */
+  }
+}
+
+/* ===== 검색줄: 모두 펼치기 버튼 ===== */
+.search-row {
+  margin-bottom: 0;
+}
+.toggle-all {
+  height: 46px;
+  padding: 0 16px;
+  border-radius: 14px;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+.toggle-all[hidden] {
+  display: none;
+}
+@media (max-width: 520px) {
+  .toggle-all span {
+    display: none;
+  }
+  .toggle-all {
+    padding: 0 13px;
+  }
+}
+
+/* ===== 카테고리 아코디언 ===== */
+.acc-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 44px;
+}
+
+.acc {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+  transition: box-shadow 220ms ease, border-color 220ms ease;
+  scroll-margin-top: 90px;
+}
+.acc:hover {
+  border-color: #c6d6e6;
+}
+.acc.open {
+  border-color: rgba(22, 140, 255, 0.45);
+  box-shadow: 0 14px 34px rgba(0, 87, 184, 0.12);
+}
+.acc.flash {
+  animation: acc-flash 1.2s ease;
+}
+@keyframes acc-flash {
+  0%, 100% { box-shadow: var(--shadow-card); }
+  30% { box-shadow: 0 0 0 4px rgba(22, 140, 255, 0.28); }
+}
+
+.acc-head {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 18px;
+  background: none;
+  border: 0;
+  text-align: left;
+  cursor: pointer;
+  color: var(--navy);
+}
+.acc-head:hover .acc-icon {
+  transform: scale(1.06);
+}
+
+.acc-icon {
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--ice-blue);
+  color: var(--deep-blue);
+  transition: transform 200ms ease, background 200ms ease, color 200ms ease;
+}
+.acc-icon svg {
+  width: 22px;
+  height: 22px;
+}
+.acc.open .acc-icon {
+  background: linear-gradient(135deg, var(--deep-blue), var(--bright-blue));
+  color: #fff;
+}
+
+.acc-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.acc-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 17px;
+  font-weight: 750;
+  line-height: 1.35;
+}
+.acc-pin {
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 700;
+  color: #9a5b00;
+  background: #fff4d6;
+  border-radius: 999px;
+  padding: 2px 8px;
+  white-space: nowrap;
+}
+.acc-sub {
+  font-size: 13px;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.acc-count {
+  flex-shrink: 0;
+  min-width: 46px;
+  text-align: center;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--deep-blue);
+  background: var(--ice-blue);
+  border-radius: 999px;
+  padding: 5px 12px;
+}
+.acc-count small {
+  font-size: 11px;
+  font-weight: 650;
+  margin-left: 1px;
+}
+.acc.open .acc-count {
+  background: var(--deep-blue);
+  color: #fff;
+}
+
+.acc-chevron {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  transition: transform 260ms ease, background 200ms ease;
+}
+.acc-head:hover .acc-chevron {
+  background: var(--surface-soft);
+}
+.acc.open .acc-chevron {
+  transform: rotate(180deg);
+  color: var(--deep-blue);
+}
+
+/* 부드럽게 열리고 닫히는 패널 (높이 자동) */
+.acc-panel {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 300ms ease;
+}
+.acc.open .acc-panel {
+  grid-template-rows: 1fr;
+}
+.acc-inner {
+  overflow: hidden;
+  min-height: 0;
+}
+.acc-inner > * {
+  margin: 0 18px 18px;
+}
+.acc-inner > .member-lock.compact {
+  margin: 0 18px 18px;
+}
+
+.acc-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  padding-top: 16px;
+  border-top: 1px dashed var(--border);
+}
+@media (min-width: 560px) {
+  .acc-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (min-width: 1080px) {
+  .acc-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .acc-head {
+    gap: 11px;
+    padding: 14px;
+  }
+  .acc-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+  }
+  .acc-title {
+    font-size: 16px;
+  }
+  .acc-count {
+    min-width: 0;
+    padding: 4px 10px;
+    font-size: 14px;
+  }
+  .acc-chevron {
+    width: 26px;
+  }
+  .acc-inner > *,
+  .acc-inner > .member-lock.compact {
+    margin: 0 14px 14px;
+  }
+}
+
+/* 아코디언 안의 챗봇 카드 */
+.acc .bot-card {
+  box-shadow: none;
+  background: var(--surface-soft);
+  border-color: transparent;
+  padding: 16px;
+  gap: 8px;
+}
+.acc .bot-card:hover {
+  background: #fff;
+  border-color: var(--border);
+  box-shadow: var(--shadow-card-hover);
+}
+.bot-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+.acc .bot-title {
+  font-size: 16px;
+}
+.bot-badge {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 750;
+  color: #fff;
+  background: linear-gradient(135deg, #ff7a59, #ff4d6d);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+.acc .bot-open-btn {
+  height: 38px;
+  background: #fff;
+  border-color: var(--border);
+}
+
+/* ===== 왼쪽 메뉴: 카테고리 바로가기 ===== */
+.drawer-cat {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--navy);
+  transition: background 150ms ease, color 150ms ease;
+}
+.drawer-cat:hover,
+.drawer-cat:focus-visible {
+  background: var(--ice-blue);
+  color: var(--deep-blue);
+}
+
+.tools-empty {
+  color: var(--text-secondary);
+}

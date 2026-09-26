@@ -38,6 +38,20 @@
   .muted{color:var(--muted)}
   #toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#111827;color:#fff;padding:10px 16px;border-radius:10px;display:none;z-index:99}
   section[hidden]{display:none}
+  .sec-head{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:baseline;margin-bottom:12px}
+  .sec-head .muted{font-size:12px}
+  .nowrap{white-space:nowrap}
+  .ico{display:inline-flex;width:30px;height:30px;border-radius:9px;background:#ede9fe;color:var(--pri);align-items:center;justify-content:center;flex-shrink:0;vertical-align:middle}
+  .ico svg{width:17px;height:17px}
+  .ico.inline{width:26px;height:26px}
+  .cat-table td{vertical-align:middle}
+  .cat-table td:nth-child(2){display:flex;gap:6px;align-items:center}
+  .cat-table input:not([type=checkbox]){width:100%}
+  .cat-table input.w-num{width:64px}
+  .cat-table select{max-width:150px}
+  .cat-table .add-row td{background:#faf5ff;border-bottom:0}
+  .grp .grp-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px;font-size:15px}
+  .grp table{min-width:640px}
 </style>
 </head>
 <body>
@@ -50,7 +64,7 @@
   <button data-s="dash">대시보드</button>
   <button data-s="codes">가입코드</button>
   <button data-s="bots">챗봇</button>
-  <button data-s="tools">제출·편집 도구</button>
+  <button data-s="tools">실무 도구·마켓</button>
   <button data-s="notices">공지</button>
   <button data-s="settings">사이트 설정</button>
   <button data-s="logs">접속 기록</button>
@@ -99,6 +113,7 @@
         <label>신규 가입 허용<select id="st-open"><option value="true">허용</option><option value="false">마감</option></select></label>
         <label>가입 마감 안내 문구<input id="st-closedmsg" placeholder="현재 신규 가입이 마감되었습니다."></label>
         <label>문의 연락처<input id="st-contact" placeholder="카카오 오픈채팅 / 이메일"></label>
+        <label>원격지원 버튼 링크<input id="st-remote" placeholder="https://remotedesktop.google.com/home?pli=1"></label>
       </div>
       <button class="b pri" id="st-save" style="margin-top:12px">저장</button>
     </div>
@@ -113,8 +128,9 @@
 
 <script type="module">
 import { collection, getDocs, doc, getDoc, setDoc, updateDoc, deleteDoc, addDoc, query, where, orderBy, limit,
-  serverTimestamp, Timestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  serverTimestamp, Timestamp, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { db } from "./firebase-init.js";
+import { CATEGORY_ICONS, TOOL_ICONS, categoryIcon, toolIcon } from "./icons.js";
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -130,7 +146,7 @@ document.querySelectorAll("#nav button").forEach(b => b.onclick = () => show(b.d
 function show(s) {
   document.querySelectorAll("#nav button").forEach(b => b.classList.toggle("on", b.dataset.s === s));
   document.querySelectorAll("main>section").forEach(x => x.hidden = x.id !== "s-" + s);
-  ({ dash: loadDash, users: loadUsers, codes: loadCodes, bots: () => crud("bots"), tools: () => crud("tools"),
+  ({ dash: loadDash, users: loadUsers, codes: loadCodes, bots: loadBotsTab, tools: loadToolsTab,
      notices: loadNotices, settings: loadSettings, logs: loadLogs })[s]();
 }
 
@@ -251,43 +267,228 @@ $("#c-create").onclick = async () => {
   $("#c-code").value = ""; toast(`코드 ${code} 생성`); loadCodes();
 };
 
-// ---------- 챗봇 / 도구 공통 CRUD ----------
-const FIELDS = {
-  bots: [["title","챗봇 이름"],["category","카테고리"],["categoryOrder","카테고리 순서","number"],["order","순서","number"],
-         ["url","링크(URL)"],["icon","아이콘(이모지)"],["badge","배지(NEW 등)"],["tags","태그(쉼표 구분)"],["description","설명"]],
-  tools: [["title","도구 이름"],["order","순서","number"],["url","링크(URL)"],["icon","아이콘"],["description","설명"]]
-};
-async function crud(col) {
-  const sec = $("#s-" + col);
-  const list = (await getDocs(collection(db, col))).docs.map(d => ({ id: d.id, ...d.data() }))
-    .sort((a, b) => (a.categoryOrder ?? 0) - (b.categoryOrder ?? 0) || (a.order ?? 0) - (b.order ?? 0));
-  const F = FIELDS[col];
-  sec.innerHTML = `<div class="box" style="margin-top:0"><b id="${col}-ft">새 항목</b><input type="hidden" id="${col}-id">
-    <div class="grid2" style="margin-top:10px">${F.map(([k, l, t]) => `<label>${l}<input id="${col}-${k}" ${t ? `type="${t}"` : ""} ${k === "category" ? `list="${col}-cats"` : ""}></label>`).join("")}
-    <datalist id="${col}-cats">${[...new Set(list.map(x => x.category).filter(Boolean))].map(c => `<option value="${esc(c)}">`).join("")}</datalist>
-    <label>게시<select id="${col}-active"><option value="true">게시</option><option value="false">숨김</option></select></label></div>
-    <button class="b pri" id="${col}-save" style="margin-top:10px">저장</button> <button class="b" id="${col}-reset">새로 입력</button></div>
-    <div class="box"><table><thead><tr>${col === "bots" ? "<th>카테고리</th>" : ""}<th>이름</th><th>링크</th><th>순서</th><th>게시</th><th></th></tr></thead><tbody>
-    ${list.map(x => `<tr>${col === "bots" ? `<td>${esc(x.category)}</td>` : ""}<td>${esc(x.icon || "")} <b>${esc(x.title)}</b><br><span class="muted">${esc(x.description || "")}</span></td>
-      <td style="max-width:260px;word-break:break-all"><a href="${esc(x.url)}" target="_blank">${esc(x.url)}</a></td><td>${x.order ?? 0}</td><td>${x.active ? "✅" : "숨김"}</td>
-      <td><button class="b" data-e="${x.id}">수정</button><button class="b bad" data-d="${x.id}">삭제</button></td></tr>`).join("") || `<tr><td colspan="6" class="muted">항목이 없습니다.</td></tr>`}
-    </tbody></table></div>`;
-  const reset = () => { $(`#${col}-id`).value = ""; F.forEach(([k]) => $(`#${col}-${k}`).value = ""); $(`#${col}-ft`).textContent = "새 항목"; };
-  $(`#${col}-reset`).onclick = reset;
-  $(`#${col}-save`).onclick = async () => {
-    const data = { active: $(`#${col}-active`).value === "true", updatedAt: serverTimestamp() };
-    F.forEach(([k, , t]) => { const v = $(`#${col}-${k}`).value.trim(); data[k] = t === "number" ? +v || 0 : k === "tags" ? v.split(",").map(s => s.trim()).filter(Boolean) : v; });
-    if (!data.title || !/^https?:\/\//.test(data.url)) return toast("이름과 올바른 URL(https://…)을 입력하세요");
-    const id = $(`#${col}-id`).value;
-    if (id) await updateDoc(doc(db, col, id), data); else await addDoc(collection(db, col), { ...data, createdAt: serverTimestamp() });
-    toast("저장 완료"); crud(col);
-  };
-  sec.querySelectorAll("[data-e]").forEach(b => b.onclick = () => {
-    const x = list.find(i => i.id === b.dataset.e); $(`#${col}-id`).value = x.id; $(`#${col}-ft`).textContent = "수정: " + x.title;
-    F.forEach(([k]) => $(`#${col}-${k}`).value = Array.isArray(x[k]) ? x[k].join(", ") : (x[k] ?? ""));
-    $(`#${col}-active`).value = String(!!x.active); window.scrollTo({ top: 0, behavior: "smooth" });
+// ---------- 공개 통계 갱신 (비회원 첫 화면의 개수 표시용) ----------
+async function syncStats() {
+  const [bots, cats, tools] = await Promise.all(["bots", "categories", "tools"].map(c => getDocs(collection(db, c))));
+  const b = bots.docs.map(d => d.data()).filter(x => x.active === true);
+  const c = cats.docs.filter(d => d.data().active !== false);
+  const perCategory = Object.fromEntries(c.map(d => [d.id, b.filter(x => x.categoryId === d.id).length]));
+  await setDoc(doc(db, "settings", "site"), { stats: { bots: b.length, categories: c.length,
+    tools: tools.docs.filter(d => d.data().active !== false).length, perCategory, updatedAt: serverTimestamp() } }, { merge: true });
+}
+const iconOptions = (set, cur) => Object.entries(set).map(([k, v]) => `<option value="${k}"${k === cur ? " selected" : ""}>${esc(v.label)}</option>`).join("");
+const byOrder = (a, b) => (a.order ?? 99) - (b.order ?? 99);
+
+// ---------- 챗봇 · 카테고리 ----------
+let botState = { cats: [], bots: [], q: "" };
+async function loadBotsTab() {
+  const [cs, bs] = await Promise.all([getDocs(collection(db, "categories")), getDocs(collection(db, "bots"))]);
+  botState.cats = cs.docs.map(d => ({ id: d.id, ...d.data() })).sort(byOrder);
+  botState.bots = bs.docs.map(d => ({ id: d.id, ...d.data() })).sort(byOrder);
+  renderBotsTab();
+}
+function catOf(b) {
+  return botState.cats.find(c => c.id === b.categoryId) || botState.cats.find(c => c.name === b.category);
+}
+function renderBotsTab() {
+  const { cats, bots } = botState;
+  const count = id => bots.filter(b => catOf(b)?.id === id).length;
+  const nextOrder = Math.max(0, ...cats.map(c => c.order || 0)) + 1;
+  const sec = $("#s-bots");
+  sec.innerHTML = `
+  <div class="box" style="margin-top:0">
+    <div class="sec-head"><b>📂 카테고리 관리</b><span class="muted">순서가 작을수록 위에 표시 · '먼저 사용'은 사이트 왼쪽 메뉴 맨 위에 고정 · 챗봇이 있는 카테고리는 삭제할 수 없어요</span></div>
+    <table class="cat-table"><thead><tr><th>순서</th><th>아이콘</th><th>카테고리 이름</th><th>설명 (사이트에 표시)</th><th>먼저 사용</th><th>게시</th><th>챗봇</th><th></th></tr></thead>
+    <tbody>${cats.map(c => `<tr data-cid="${c.id}">
+      <td><input type="number" class="w-num" data-f="order" value="${c.order ?? 0}"></td>
+      <td><span class="ico">${categoryIcon(c.icon)}</span><select data-f="icon">${iconOptions(CATEGORY_ICONS, c.icon)}</select></td>
+      <td><input data-f="name" value="${esc(c.name)}" maxlength="30"></td>
+      <td><input data-f="description" value="${esc(c.description || "")}" maxlength="60"></td>
+      <td><input type="checkbox" data-f="pinned" ${c.pinned ? "checked" : ""}></td>
+      <td><input type="checkbox" data-f="active" ${c.active !== false ? "checked" : ""}></td>
+      <td><b>${count(c.id)}</b>개</td>
+      <td class="nowrap"><button class="b pri" data-csave>저장</button><button class="b bad" data-cdel>삭제</button></td></tr>`).join("")}
+    </tbody>
+    <tfoot><tr class="add-row">
+      <td><input type="number" class="w-num" id="nc-order" value="${nextOrder}"></td>
+      <td><span class="ico" id="nc-ico">${categoryIcon("star")}</span><select id="nc-icon">${iconOptions(CATEGORY_ICONS, "star")}</select></td>
+      <td><input id="nc-name" placeholder="새 카테고리 이름" maxlength="30"></td>
+      <td><input id="nc-desc" placeholder="예) 봄 시즌 한정 컨셉" maxlength="60"></td>
+      <td><input type="checkbox" id="nc-pin"></td><td></td><td></td>
+      <td><button class="b ok" id="nc-add">+ 추가</button></td></tr></tfoot></table>
+  </div>
+
+  <div class="box" id="bot-form">
+    <div class="sec-head"><b id="bf-title">🤖 새 챗봇 추가</b><span class="muted">카테고리를 고르면 사이트에서 자동으로 그룹·개수가 반영돼요</span></div>
+    <input type="hidden" id="bf-id">
+    <div class="grid2">
+      <label>카테고리 *<select id="bf-cat">${cats.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join("")}</select></label>
+      <label>챗봇 이름 *<input id="bf-name" maxlength="40" placeholder="예) 사랑 컨셉 3"></label>
+      <label style="grid-column:span 2">링크(URL) *<input id="bf-url" placeholder="https://gemini.google.com/gem/…"></label>
+      <label style="grid-column:span 2">설명<input id="bf-desc" maxlength="80" placeholder="카드에 표시되는 한 줄 설명"></label>
+      <label>배지<input id="bf-badge" maxlength="8" placeholder="NEW, 인기 등"></label>
+      <label>태그 (쉼표 구분)<input id="bf-tags" placeholder="사랑, 하트"></label>
+      <label>순서 (비우면 맨 뒤)<input id="bf-order" type="number"></label>
+      <label>게시<select id="bf-active"><option value="true">게시</option><option value="false">숨김</option></select></label>
+    </div>
+    <div style="margin-top:12px"><button class="b pri" id="bf-save">저장</button> <button class="b" id="bf-reset">새로 입력</button></div>
+  </div>
+
+  <div class="toolbar" style="margin-top:16px"><input id="bf-q" placeholder="챗봇 이름·설명 검색" value="${esc(botState.q)}" style="flex:1;min-width:200px">
+    <span class="muted">전체 ${bots.length}개 · 게시 ${bots.filter(b => b.active === true).length}개</span></div>
+  <div id="bot-groups"></div>`;
+
+  renderBotGroups();
+
+  // 카테고리 행 저장/삭제
+  sec.querySelectorAll("select[data-f=icon]").forEach(s => s.onchange = () => s.previousElementSibling.innerHTML = categoryIcon(s.value));
+  $("#nc-icon").onchange = e => $("#nc-ico").innerHTML = categoryIcon(e.target.value);
+  sec.querySelectorAll("[data-csave]").forEach(btn => btn.onclick = async () => {
+    const tr = btn.closest("tr"), id = tr.dataset.cid, old = cats.find(c => c.id === id);
+    const v = f => tr.querySelector(`[data-f=${f}]`);
+    const name = v("name").value.trim();
+    if (!name) return toast("카테고리 이름을 입력하세요");
+    if (cats.some(c => c.id !== id && c.name === name)) return toast("같은 이름의 카테고리가 있어요");
+    await updateDoc(doc(db, "categories", id), { name, icon: v("icon").value, description: v("description").value.trim(),
+      order: +v("order").value || 0, pinned: v("pinned").checked, active: v("active").checked, updatedAt: serverTimestamp() });
+    if (name !== old.name) { // 이름이 바뀌면 소속 챗봇의 카테고리 이름도 함께 변경
+      const batch = writeBatch(db);
+      bots.filter(b => catOf(b)?.id === id).forEach(b => batch.update(doc(db, "bots", b.id), { category: name, categoryId: id }));
+      await batch.commit();
+    }
+    await syncStats(); toast("카테고리 저장"); loadBotsTab();
   });
-  sec.querySelectorAll("[data-d]").forEach(b => b.onclick = async () => { if (confirm("삭제할까요?")) { await deleteDoc(doc(db, col, b.dataset.d)); crud(col); } });
+  sec.querySelectorAll("[data-cdel]").forEach(btn => btn.onclick = async () => {
+    const id = btn.closest("tr").dataset.cid, n = count(id);
+    if (n) return toast(`챗봇 ${n}개가 있어 삭제할 수 없어요. 먼저 옮기거나 삭제하세요.`);
+    if (!confirm("이 카테고리를 삭제할까요?")) return;
+    await deleteDoc(doc(db, "categories", id)); await syncStats(); toast("카테고리 삭제"); loadBotsTab();
+  });
+  $("#nc-add").onclick = async () => {
+    const name = $("#nc-name").value.trim();
+    if (!name) return toast("카테고리 이름을 입력하세요");
+    if (cats.some(c => c.name === name)) return toast("같은 이름의 카테고리가 있어요");
+    await addDoc(collection(db, "categories"), { name, icon: $("#nc-icon").value, description: $("#nc-desc").value.trim(),
+      order: +$("#nc-order").value || nextOrder, pinned: $("#nc-pin").checked, active: true, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+    await syncStats(); toast(`카테고리 '${name}' 추가`); loadBotsTab();
+  };
+
+  // 챗봇 저장
+  const resetForm = () => {
+    ["id", "name", "url", "desc", "badge", "tags", "order"].forEach(k => $(`#bf-${k}`).value = "");
+    $("#bf-active").value = "true"; $("#bf-title").textContent = "🤖 새 챗봇 추가";
+  };
+  $("#bf-reset").onclick = resetForm;
+  $("#bf-save").onclick = async () => {
+    const cat = cats.find(c => c.id === $("#bf-cat").value);
+    const title = $("#bf-name").value.trim(), url = $("#bf-url").value.trim();
+    if (!cat) return toast("먼저 카테고리를 추가하세요");
+    if (!title || !/^https?:\/\//.test(url)) return toast("이름과 올바른 URL(https://…)을 입력하세요");
+    const id = $("#bf-id").value;
+    const inCat = bots.filter(b => catOf(b)?.id === cat.id && b.id !== id);
+    const data = { title, url, categoryId: cat.id, category: cat.name, description: $("#bf-desc").value.trim(),
+      badge: $("#bf-badge").value.trim(), tags: $("#bf-tags").value.split(",").map(s => s.trim()).filter(Boolean),
+      order: $("#bf-order").value === "" ? Math.max(0, ...inCat.map(b => b.order || 0)) + 1 : +$("#bf-order").value,
+      active: $("#bf-active").value === "true", updatedAt: serverTimestamp() };
+    if (id) await updateDoc(doc(db, "bots", id), data);
+    else await addDoc(collection(db, "bots"), { ...data, icon: "", createdAt: serverTimestamp() });
+    await syncStats(); toast(id ? "챗봇 수정 완료" : `'${cat.name}'에 챗봇 추가`); loadBotsTab();
+  };
+  $("#bf-q").oninput = e => { botState.q = e.target.value; renderBotGroups(); };
+}
+function renderBotGroups() {
+  const { cats, bots } = botState;
+  const q = botState.q.trim().toLowerCase();
+  const hit = b => !q || [b.title, b.description, ...(b.tags || [])].join(" ").toLowerCase().includes(q);
+  const groups = cats.map(c => ({ c, list: bots.filter(b => catOf(b)?.id === c.id) }));
+  const orphan = bots.filter(b => !catOf(b));
+  if (orphan.length) groups.push({ c: { id: "", name: "미분류 (카테고리 지정 필요)", icon: "star" }, list: orphan });
+  $("#bot-groups").innerHTML = groups.map(({ c, list }) => {
+    const shown = list.filter(hit).sort(byOrder);
+    if (q && !shown.length) return "";
+    const hidden = list.filter(b => b.active !== true).length;
+    return `<div class="box grp">
+      <div class="grp-head"><span class="ico">${categoryIcon(c.icon)}</span><b>${esc(c.name)}</b>
+        <span class="tag t-approved">${list.length}개</span>${hidden ? `<span class="tag t-rejected">숨김 ${hidden}</span>` : ""}
+        ${c.active === false ? `<span class="tag t-suspended">카테고리 숨김</span>` : ""}</div>
+      ${shown.length ? `<table><thead><tr><th style="width:56px">순서</th><th>챗봇</th><th>링크</th><th>게시</th><th></th></tr></thead><tbody>
+      ${shown.map(b => `<tr><td>${b.order ?? 0}</td>
+        <td><b>${esc(b.title)}</b>${b.badge ? ` <span class="tag t-admin">${esc(b.badge)}</span>` : ""}<br><span class="muted">${esc(b.description || "")}</span></td>
+        <td style="max-width:260px;word-break:break-all"><a href="${esc(b.url)}" target="_blank" rel="noopener">${esc(b.url)}</a></td>
+        <td><button class="b ${b.active === true ? "ok" : ""}" data-bt="${b.id}">${b.active === true ? "게시중" : "숨김"}</button></td>
+        <td class="nowrap"><button class="b" data-be="${b.id}">수정</button><button class="b bad" data-bd="${b.id}">삭제</button></td></tr>`).join("")}
+      </tbody></table>` : `<p class="muted" style="margin:8px 0 0">아직 챗봇이 없어요. 위에서 이 카테고리를 선택해 추가하세요.</p>`}
+    </div>`;
+  }).join("") || `<div class="box muted">검색 결과가 없습니다.</div>`;
+
+  const sec = $("#bot-groups");
+  sec.querySelectorAll("[data-be]").forEach(btn => btn.onclick = () => {
+    const b = bots.find(x => x.id === btn.dataset.be);
+    $("#bf-id").value = b.id; $("#bf-cat").value = catOf(b)?.id || cats[0]?.id || "";
+    $("#bf-name").value = b.title || ""; $("#bf-url").value = b.url || ""; $("#bf-desc").value = b.description || "";
+    $("#bf-badge").value = b.badge || ""; $("#bf-tags").value = (b.tags || []).join(", "); $("#bf-order").value = b.order ?? "";
+    $("#bf-active").value = String(b.active === true); $("#bf-title").textContent = `✏️ 수정: ${b.title}`;
+    $("#bot-form").scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+  sec.querySelectorAll("[data-bt]").forEach(btn => btn.onclick = async () => {
+    const b = bots.find(x => x.id === btn.dataset.bt);
+    await updateDoc(doc(db, "bots", b.id), { active: b.active !== true, updatedAt: serverTimestamp() });
+    await syncStats(); loadBotsTab();
+  });
+  sec.querySelectorAll("[data-bd]").forEach(btn => btn.onclick = async () => {
+    if (!confirm("이 챗봇을 삭제할까요?")) return;
+    await deleteDoc(doc(db, "bots", btn.dataset.bd)); await syncStats(); toast("삭제 완료"); loadBotsTab();
+  });
+}
+
+// ---------- 실무 도구 · 마켓 ----------
+async function loadToolsTab() {
+  const list = (await getDocs(collection(db, "tools"))).docs.map(d => ({ id: d.id, ...d.data() })).sort(byOrder);
+  const sec = $("#s-tools");
+  sec.innerHTML = `
+  <div class="box" style="margin-top:0">
+    <div class="sec-head"><b id="tf-title">🛠️ 새 도구 추가</b><span class="muted">사이트의 '실무 도구 · 마켓'과 왼쪽 메뉴에 표시됩니다 (비회원도 볼 수 있음)</span></div>
+    <input type="hidden" id="tf-id">
+    <div class="grid2">
+      <label>이름 *<input id="tf-name" maxlength="30"></label>
+      <label style="grid-column:span 2">링크(URL) *<input id="tf-url" placeholder="https://"></label>
+      <label>아이콘<span style="display:flex;gap:6px;align-items:center"><span class="ico" id="tf-ico">${toolIcon("link")}</span><select id="tf-icon" style="flex:1">${iconOptions(TOOL_ICONS, "link")}</select></span></label>
+      <label style="grid-column:span 2">설명<input id="tf-desc" maxlength="60"></label>
+      <label>순서 (비우면 맨 뒤)<input id="tf-order" type="number"></label>
+      <label>게시<select id="tf-active"><option value="true">게시</option><option value="false">숨김</option></select></label>
+    </div>
+    <div style="margin-top:12px"><button class="b pri" id="tf-save">저장</button> <button class="b" id="tf-reset">새로 입력</button></div>
+  </div>
+  <div class="box"><table><thead><tr><th style="width:56px">순서</th><th>도구</th><th>링크</th><th>게시</th><th></th></tr></thead><tbody>
+    ${list.map(t => `<tr><td>${t.order ?? 0}</td><td><span class="ico inline">${toolIcon(t.icon)}</span> <b>${esc(t.title)}</b><br><span class="muted">${esc(t.description || "")}</span></td>
+      <td style="max-width:280px;word-break:break-all"><a href="${esc(t.url)}" target="_blank" rel="noopener">${esc(t.url)}</a></td>
+      <td>${t.active !== false ? "✅" : "숨김"}</td>
+      <td class="nowrap"><button class="b" data-te="${t.id}">수정</button><button class="b bad" data-td="${t.id}">삭제</button></td></tr>`).join("")
+      || `<tr><td colspan="5" class="muted">등록된 도구가 없습니다.</td></tr>`}
+  </tbody></table></div>`;
+  $("#tf-icon").onchange = e => $("#tf-ico").innerHTML = toolIcon(e.target.value);
+  $("#tf-reset").onclick = () => { ["id", "name", "url", "desc", "order"].forEach(k => $(`#tf-${k}`).value = "");
+    $("#tf-icon").value = "link"; $("#tf-ico").innerHTML = toolIcon("link"); $("#tf-active").value = "true"; $("#tf-title").textContent = "🛠️ 새 도구 추가"; };
+  $("#tf-save").onclick = async () => {
+    const title = $("#tf-name").value.trim(), url = $("#tf-url").value.trim(), id = $("#tf-id").value;
+    if (!title || !/^https?:\/\//.test(url)) return toast("이름과 올바른 URL(https://…)을 입력하세요");
+    const data = { title, url, icon: $("#tf-icon").value, description: $("#tf-desc").value.trim(),
+      order: $("#tf-order").value === "" ? Math.max(0, ...list.filter(t => t.id !== id).map(t => t.order || 0)) + 1 : +$("#tf-order").value,
+      active: $("#tf-active").value === "true", updatedAt: serverTimestamp() };
+    if (id) await updateDoc(doc(db, "tools", id), data); else await addDoc(collection(db, "tools"), { ...data, createdAt: serverTimestamp() });
+    await syncStats(); toast("저장 완료"); loadToolsTab();
+  };
+  sec.querySelectorAll("[data-te]").forEach(btn => btn.onclick = () => {
+    const t = list.find(x => x.id === btn.dataset.te);
+    $("#tf-id").value = t.id; $("#tf-name").value = t.title || ""; $("#tf-url").value = t.url || ""; $("#tf-desc").value = t.description || "";
+    $("#tf-icon").value = TOOL_ICONS[t.icon] ? t.icon : "link"; $("#tf-ico").innerHTML = toolIcon(t.icon);
+    $("#tf-order").value = t.order ?? ""; $("#tf-active").value = String(t.active !== false); $("#tf-title").textContent = `✏️ 수정: ${t.title}`;
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  });
+  sec.querySelectorAll("[data-td]").forEach(btn => btn.onclick = async () => {
+    if (!confirm("이 도구를 삭제할까요?")) return;
+    await deleteDoc(doc(db, "tools", btn.dataset.td)); await syncStats(); toast("삭제 완료"); loadToolsTab();
+  });
 }
 
 // ---------- 공지 ----------
@@ -311,10 +512,12 @@ $("#n-create").onclick = async () => {
 async function loadSettings() {
   const s = await getDoc(doc(db, "settings", "site")); const d = s.exists() ? s.data() : {};
   $("#st-open").value = String(d.signupOpen !== false); $("#st-closedmsg").value = d.signupClosedMessage || ""; $("#st-contact").value = d.contact || "";
+  $("#st-remote").value = d.remoteSupportUrl || "https://remotedesktop.google.com/home?pli=1";
 }
 $("#st-save").onclick = async () => {
   await setDoc(doc(db, "settings", "site"), { signupOpen: $("#st-open").value === "true", signupClosedMessage: $("#st-closedmsg").value.trim(),
-    contact: $("#st-contact").value.trim(), updatedAt: serverTimestamp() }, { merge: true });
+    contact: $("#st-contact").value.trim(), remoteSupportUrl: $("#st-remote").value.trim() || "https://remotedesktop.google.com/home?pli=1",
+    updatedAt: serverTimestamp() }, { merge: true });
   toast("설정 저장");
 };
 
