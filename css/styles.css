@@ -1531,17 +1531,46 @@ input:focus-visible {
 }
 .hero-mascot {
   position: relative;
+  z-index: 1;
   width: 62%;
   height: auto;
   filter: drop-shadow(0 14px 24px rgba(0, 87, 184, 0.22));
-  animation: hero-float 4.5s ease-in-out infinite;
+  transform-origin: 50% 100%;
+  animation: hero-bounce 1.8s infinite;
 }
-@keyframes hero-float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-8px); }
+/* 바닥 그림자: 캐릭터가 높이 뜨면 작고 옅어짐 */
+.hero-art::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 80%;
+  width: 38%;
+  height: 6%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(0, 57, 130, 0.28), transparent);
+  transform: translateX(-50%);
+  animation: hero-shadow 1.8s infinite;
+}
+/* 통통 튀기: 착지 찌그러짐 → 도약 늘어남 → 정점 → 낙하 → 착지 → 작은 반동 */
+@keyframes hero-bounce {
+  0%   { transform: translateY(0) scale(1, 1); animation-timing-function: ease-out; }
+  8%   { transform: translateY(0) scale(1.12, 0.86); animation-timing-function: ease-out; }
+  18%  { transform: translateY(-8px) scale(0.92, 1.1); animation-timing-function: cubic-bezier(0.2, 0.6, 0.35, 1); }
+  45%  { transform: translateY(-46px) scale(1, 1); animation-timing-function: cubic-bezier(0.55, 0, 0.8, 0.4); }
+  70%  { transform: translateY(0) scale(0.94, 1.08); animation-timing-function: ease-out; }
+  78%  { transform: translateY(0) scale(1.14, 0.84); animation-timing-function: ease-out; }
+  86%  { transform: translateY(-10px) scale(0.98, 1.03); animation-timing-function: ease-in; }
+  93%  { transform: translateY(0) scale(1.04, 0.96); animation-timing-function: ease-out; }
+  100% { transform: translateY(0) scale(1, 1); }
+}
+@keyframes hero-shadow {
+  0%, 8%, 70%, 78%, 93%, 100% { transform: translateX(-50%) scale(1.08, 1); opacity: 1; }
+  45% { transform: translateX(-50%) scale(0.55, 0.7); opacity: 0.45; }
+  86% { transform: translateX(-50%) scale(0.9, 0.9); opacity: 0.85; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .hero-mascot {
+  .hero-mascot,
+  .hero-art::after {
     animation: none;
   }
 }
